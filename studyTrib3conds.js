@@ -74,19 +74,30 @@ $.urlParam = function(name){
 // ############################## Configuration settings ##############################
 
 var stim_set = [];
-var nouns = ['baby', 'balloon', 'cake', 'duckling', 'elephant', 'gnome', 'hippo', 'house', 'monkey', 'bunny', 'plane', 'umbrella'];
-
+var nouns_big = ['baby', 'balloon', 'cake', 'duckling', 'elephant', 'gnome', 'hippo', 'house', 'monkey', 'bunny', 'plane', 'umbrella'];
+var nouns_small = ['ant', 'bean', 'candy', 'hazelnut', 'earring', 'fly', 'blueberry', 'seed', 'ladybug', 'pill', 'pin', 'tack'];
+var condition = random(1,3);
 //for testing purposes - short varient
 //var nouns = ['baby', 'balloon'];
-//var dirs = ['asc', 'desc'];
+var dirs = ['asc', 'desc'];
 var adjs = ['big', 'small'];
 var verb = ['are'];
 var NUM_PICS = 7;
 var TEST_WORD = "test";
 
-//shuffles integers 1-NUM_PICS in a random order. will be called for each stimulus throughout
-function getNumOrder(){
-	var num_order = shuffle(myRange(1,NUM_PICS+1));
+//In condition 1 where the pictures are in order, gets the order. In conditions 2 and 3 shuffles integers 1-NUM_PICS in a random order. will be called for each stimulus throughout
+function getNumOrder(condition, dir){
+	var num_order = [];
+	if (condition = 1){
+		if (dir = 'asc'){
+			num_order = [1, 2, 3, 4, 5, 6, 7];
+		} else {
+			num_order = [7, 6, 5, 4, 3, 2, 1];
+		}
+		 
+	} else {
+		num_order = shuffle(myRange(1,NUM_PICS+1));
+	}
 	return num_order;
 }
 
