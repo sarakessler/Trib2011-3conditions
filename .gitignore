@@ -1,0 +1,42 @@
+# R created files
+*.Rproj
+*.Rproj.user
+*.Rhistory
+*.RData
+*.Ruserdata
+*.history
+
+# Image/output files unless otherwise specified
+*.pdf
+*.png
+*.docx
+*.doc
+*.jpg
+*.gif
+# Misc Knit Files
+*.aux
+*.gz
+*.log
+*.rdx
+*.rdb
+*.knit.md
+*cache
+# Other
+packrat/src*/
+*.httr-oauth
+*.DS_Store
+# MTurk credentials and data
+auth.json
+my-own-auth.json
+settings.json
+mturk-and-gmail.txt
+mturk/
+pilota_results/
+# Specific file keep
+!README.md
+!original_paper/tribushinina-2011-Once_again_on_norms_and_comparison_classes.pdf
+.Rproj.user
+!images/*.png
+!final-images/*.png
+!draft-images/*.png
+!images/*.jpg
