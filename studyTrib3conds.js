@@ -77,7 +77,18 @@ var stim_set = [];
 var nouns_big = ['baby', 'balloon', 'cake', 'duckling', 'elephant', 'gnome', 'hippo', 'house', 'monkey', 'bunny', 'plane', 'umbrella'];
 var nouns_small = ['ant', 'bean', 'candy', 'hazelnut', 'earring', 'fly', 'blueberry', 'seed', 'ladybug', 'pill', 'pin', 'tack'];
 //condition 1 - relpics, condition 2 mixed order, condition 3 mixed order small items
-var condition = random(1,3);
+
+//weights the conditions so that 20% (~ n=50) get condition 1, 40% (~n=100) get condition 2 and 40% (~n=100) get condition 3
+//from Stackoverflow https://stackoverflow.com/questions/8435183/generate-a-weighted-random-number
+function weightedRand2(spec) {
+  var i, sum=0, r=Math.random();
+  for (i in spec) {
+    sum += spec[i];
+    if (r <= sum) return i;
+  }
+}
+
+var condition = weightedRand2({1:0.2, 2:0.4, 3:0.4}); // random in distribution...
 //for testing purposes of given condition
 //var condition = 1;
 //for testing purposes - short varient
