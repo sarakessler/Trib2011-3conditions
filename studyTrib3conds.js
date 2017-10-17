@@ -76,7 +76,10 @@ $.urlParam = function(name){
 var stim_set = [];
 var nouns_big = ['baby', 'balloon', 'cake', 'duckling', 'elephant', 'gnome', 'hippo', 'house', 'monkey', 'bunny', 'plane', 'umbrella'];
 var nouns_small = ['ant', 'bean', 'candy', 'hazelnut', 'earring', 'fly', 'blueberry', 'seed', 'ladybug', 'pill', 'pin', 'tack'];
+//condition 1 - relpics, condition 2 mixed order, condition 3 mixed order small items
 var condition = random(1,3);
+//for testing purposes of given condition
+//var condition = 1;
 //for testing purposes - short varient
 //var nouns = ['baby', 'balloon'];
 var dirs = ['asc', 'desc'];
@@ -88,11 +91,11 @@ var TEST_WORD = "test";
 //In condition 1 where the pictures are in order, gets the order. In conditions 2 and 3 shuffles integers 1-NUM_PICS in a random order. will be called for each stimulus throughout
 function getNumOrder(condition, dir){
 	var num_order = [];
-	if (condition = 1){
-		if (dir = 'asc'){
-			num_order = [1, 2, 3, 4, 5, 6, 7];
+	if (condition == 1){
+		if (dir == 'asc'){
+			num_order = myRange(1,NUM_PICS+1);
 		} else {
-			num_order = [7, 6, 5, 4, 3, 2, 1];
+			num_order = myRange(1,NUM_PICS+1).reverse();
 		}
 		 
 	} else {
@@ -102,12 +105,30 @@ function getNumOrder(condition, dir){
 }
 
 var trial_verb = shuffle(verb).shift();
-for (var i = 0; i < nouns.length; i++){
-	for (var k = 0; k < adjs.length; k++){
-		var stim_element = {noun: nouns[i], adj: adjs[k], order: getNumOrder(), vb: trial_verb};
-		stim_set.push(stim_element);
+var nouns = [];
+if (condition == 3){
+	nouns = nouns_small;
+} else {
+	nouns = nouns_big;
+}
+if (condition == 1){
+	for (var i = 0; i < nouns.length; i++){
+		for (var j = 0; j < dirs.length; j++){
+			for (var k = 0; k < adjs.length; k++){
+				var stim_element = {noun: nouns[i], dir: dirs[j], adj: adjs[k], order: getNumOrder(condition, dirs[j]), vb: trial_verb};
+				stim_set.push(stim_element);
+			}
+		} 
 	}
-} 
+} else {
+	for (var i = 0; i < nouns.length; i++){
+		for (var k = 0; k < adjs.length; k++){
+			var stim_element = {noun: nouns[i], adj: adjs[k], dir: 'na', order: getNumOrder(condition, 'na'), vb: trial_verb};
+			stim_set.push(stim_element);
+		}
+	} 
+
+}
 
 
 //gets the right set of image files for the trial
@@ -387,7 +408,8 @@ var experiment = {
     // The object to be submitted.
     data: {
 
-      noun: [],
+      expt_condition: [],
+	  noun: [],
       ratings: [],
 	  sizes: [],
 	  non_consecutive: [],
@@ -397,6 +419,7 @@ var experiment = {
 	  pic_order: [],
 	  adj: [],
 	  verb: [],
+	  dir: [],
 	  prototype_status: [],
 	  num_checked: [],
       num_errors: [],
@@ -546,6 +569,8 @@ var experiment = {
 		experiment.data.pic_order.push(elem.order);
 		experiment.data.adj.push(elem.adj);
 		experiment.data.verb.push(elem.vb);
+		experiment.data.dir.push(elem.dir);
+		experiment.data.expt_condition.push(condition);
 		experiment.data.prototype_status.push(getProtStatus(elem));  
         experiment.data.window_width.push($(window).width());
         experiment.data.window_height.push($(window).height());

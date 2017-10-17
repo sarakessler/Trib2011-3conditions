@@ -152,6 +152,7 @@ td {
 
 .image_row td{
 	vertical-align: bottom;
+	width: 60px;
 }
 
 .image_row img {
