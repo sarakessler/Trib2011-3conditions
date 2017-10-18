@@ -1,0 +1,138 @@
+---
+title: "Tribushinina 2011-3 conditions"
+output: html_notebook
+---
+This is an analysis of three experiments - The paradigm for all is based on the first experiment reported in Tribushinina 2011.
+Experiment 1 (condition 1) - Same as Tribushinina 2011 but with real pictures rather than cartoon images. 
+Experiment 2 (condition 2) - The images are in real pictures in random order for each display rather than either ascending or descending, of objects that are bigger in real life than in the images of them.
+Experiment 3 (condition 3) - The images are in real pictures in random order for each display rather than either ascending or descending, of objects that are bigger in real life than in the images of them.
+
+Predictions:
+Experiment 1 - The effect should be identical to the results reported in Tribushinina 2011, and replicated in Experiment 1a, where the small zone is bigger than the big zone in general, and also with an interaction between prototype status and size judgments, so that he big zone is bigger for prototypically small objects than for prototypically big objects and the small zone is bigger for prototypically big objects than for prototypically small objects.
+
+Experiment 2 - The results are predicted to be the same as those for experiment 1, but the effect size may be smaller since there may be interference form the immediate context changing, though given the randomness, I do not predict this to have a large overall effect, but careful analysis (distance metric ?) may reveal an effect after all.
+
+Eperiment 3 - The results are predicted to be the same as those for experiment 1b (reverse Tribushinina), where, since the images are larger than the real-size of the objects depicted in them, the big zone will be larger than the small zone.
+
+The exclusion criteria for experiments 2 and 3 need modifying - lack of adjacency no longer necessarily means willful mistake, and the question is how to treat those cases in the analysis. Is it the case that lack of endpoint also may now be less damning? When should a participant be excluded?
+
+```{r}
+###Data Preparation
+
+####Load Relevant Libraries and Functions
+library(tidyverse)
+#library(langcog)
+library(stringr)
+library(rjson)
+library(ordinal)
+
+sem <- function(x) {sd(x, na.rm=TRUE) / sqrt(length(x))}
+ci95 <- function(x) {sem(x) * 1.96}
+addnas <- function (x) {if (length(x)==0){
+  result = NA
+} else {result = x}
+  return(result)
+}
+
+####Import data
+
+path <- "D:/Dropbox/School/more adjs/experiment 1b/Trib2011-3conditions/data/"
+files <- dir("D:/Dropbox/School/more adjs/experiment 1b/Trib2011-3conditions/data/anonymized-results/", 
+             pattern = "*.json")
+d.raw <- data.frame()
+
+for (f in files) {
+  jf <- paste0(path, "anonymized-results/",f)
+  jd <- fromJSON(file = jf)
+  id <- data.frame(subid = f,
+                   condition = jd$answers$data$expt_condition,
+                   adj = jd$answers$data$adj,
+                   verb = jd$answers$data$verb,
+                   noun = jd$answers$data$noun,
+                   num_checked = as.numeric(jd$answers$data$num_checked),
+                   noun = jd$answers$data$noun,
+                   elapsed_ms = jd$answers$data$elapsed_ms,
+                   elapsed_first_click_ms = jd$answers$data$elapsed_first_click_ms,
+                   workerid = jd$WorkerId,
+                   language = tolower(jd$answers$data$lang),
+                   prototype_status = jd$answers$data$prototype_status,
+                   non_consec = jd$answers$data$non_consecutive,
+                   is_endpoint = jd$answers$data$is_endpoint,
+                   endpoint = as.character(unlist(jd$answers$data$endpoint)),
+                   good_endpoint = jd$answers$data$good_ep,
+                   none_checked = jd$answers$data$none_checked,
+                   all_checked = jd$answers$data$all_checked,
+                   comments = jd$answers$data$expt_gen,
+                   screen_size = as.numeric(jd$answers$data$screen_size))
+                    
+                  
+  d.raw <- bind_rows(d.raw, id)
+}
+
+# Number of participants
+length(unique(d.raw$workerid))
+length(unique(d.raw$subid))
+
+num_trials = 48
+
+table(as.factor(d.raw$screen_size))
+table(as.factor(d.raw$condition))
+table(as.factor(d.raw$condition), as.factor(d.raw$screen_size))
+table(as.factor(d.raw$condition),d.raw$language)
+
+#### Data exclusion / filtering
+```
+
+
+
+###Cleaning up unpredicted typos
+```{r}
+table(as.factor(d.raw$language))
+for (i in 1:length(d.raw$language)) {
+   if (d.raw$language[i] == "ebglish" & (!is.na(d.raw$language[i]))){
+   d.raw$language[i] = "english"
+   }
+ }
+
+```
+
+
+```{r}
+# get rid of training items, exclude non-English speakers, exclude those described below
+
+d <- d.raw %>%
+  filter(verb == "are") %>%
+  filter(adj !="pretty") %>%
+  filter(adj != "ugly")%>%
+  #filter(as.numeric(screen_size) >= 12) %>%
+  filter(str_detect(language, 'eng')) %>%
+  select(-language) %>%
+  group_by(subid) %>%
+  mutate(perc_non_consec = sum(non_consec)/num_trials,
+            perc_no_endpoint = (length(is_endpoint)-sum(is_endpoint))/num_trials,
+         perc_good_endpoint = (sum(good_endpoint))/num_trials) %>%
+  filter(perc_non_consec < .1) %>%
+  filter(perc_good_endpoint >.9) %>%
+  filter(good_endpoint == TRUE) %>%
+  filter(non_consec == FALSE) %>%
+  filter(is_endpoint == TRUE)
+for (i in 1:length(d$none_checked)) {
+   if (d$none_checked[i] == TRUE & (!is.na(d$none_checked[i]))){
+   d$num_checked[i] = 0
+   }
+ }
+
+length(unique(d$workerid))
+#for pilot A
+# d <- filter(d.raw, prototype_status != "na") %>%
+#   group_by(subid) %>%
+#   mutate(perc_non_consec = sum(non_consec)/num_trials,
+#             perc_no_endpoint = (length(is_endpoint)-sum(is_endpoint))/num_trials,
+#          perc_good_endpoint = (sum(good_endpoint))/num_trials) 
+
+#need to check for having more than 10% non_consecutive or less than 90% with the right endpoint, and exclude those participants, and then exclude any remaining trials in which there is non_consecutive data or no endpoint.  (The option for saying none of them is big is coded as 9, so that if someone checks both the none box and one of the images then it comes up as non-consecutive)
+
+head(d)
+
+#### Prepare data for analysis - create columns etc.
+```
