@@ -16,6 +16,10 @@ Eperiment 3 - The results are predicted to be the same as those for experiment 1
 
 The exclusion criteria for experiments 2 and 3 need modifying - lack of adjacency no longer necessarily means willful mistake, and the question is how to treat those cases in the analysis. Is it the case that lack of endpoint also may now be less damning? When should a participant be excluded?
 
+There are two separate types of analyses - the first is the same as the analysis in Tribushinina 2011, using non-parametric statistics (Wilcoxon) to show that the difference between the big zone and the small zone is statistically significant in the direction predicted.
+This analysis uses a data frame in which each trial is a row.
+The other type of analysis is binary logistic regression. This uses a data frame in which each row represents a check box (so that each trial spans seven rows). The analysis looks at the likelihood of each checkbox being checked and asks at which box the proabblility switches tob e more likely to be checked (that can be thought of as the threshold of the adjective, or the determiner of the size of the zone). 
+
 ```{r}
 ###Data Preparation
 
@@ -34,8 +38,63 @@ addnas <- function (x) {if (length(x)==0){
   return(result)
 }
 
-####Import data
+####Import data where each row is a check box so that each trial is 7 rows.
 
+path <- "D:/Dropbox/School/more adjs/experiment 1b/Trib2011-3conditions/data/"
+files <- dir("D:/Dropbox/School/more adjs/experiment 1b/Trib2011-3conditions/data/anonymized-results/", 
+             pattern = "*.json")
+d.raw.rows <- data.frame()
+NUM_PICS <- 7
+
+for (f in files) {
+  jf <- paste0(path, "anonymized-results/",f)
+  jd <- fromJSON(file = jf)
+  if (is.element(1,jd$answers$data$expt_condition)){
+    NUM_TRIALS <- 50
+  } else{
+    NUM_TRIALS <- 26
+  }
+  for (j in 1:NUM_TRIALS){
+    for(i in 1:NUM_PICS){
+    if (is.element(i, jd$answers$data$sizes[j][[1]])) {
+      is_checked <- 1
+    } else {
+      is_checked <- 0
+    }
+    id <- data.frame(subid = f,
+                   box_num = i,
+                   condition = jd$answers$data$expt_condition[j],
+                   box_checked = is_checked,
+                   ratio_prev = jd$answers$data$sizes[j-1][[1]]/jd$answers$data$sizes[j][[1]],
+                   ratio_next = jd$answers$data$sizes[j+1][[1]]/jd$answers$data$sizes[j][[1]],
+                   adj = jd$answers$data$adj[j],
+                   verb = jd$answers$data$verb[j],
+                   dir = cbind(jd$answers$data$dir[j]),
+                   noun = jd$answers$data$noun[j],
+                   num_checked = as.numeric(jd$answers$data$num_checked[j]),
+                   elapsed_ms = jd$answers$data$elapsed_ms[j],
+                   elapsed_first_click_ms = jd$answers$data$elapsed_first_click_ms[j],
+                   workerid = jd$WorkerId,
+                   language = tolower(jd$answers$data$lang),
+                   prototype_status = jd$answers$data$prototype_status[j],
+                   non_consec = jd$answers$data$non_consecutive[j],
+                   is_endpoint = jd$answers$data$is_endpoint[j],
+                   endpoint = as.character(unlist(jd$answers$data$endpoint[j])),
+                   good_endpoint = jd$answers$data$good_ep[j],
+                   none_checked = jd$answers$data$none_checked[j],
+                   all_checked = jd$answers$data$all_checked[j],
+                   comments = jd$answers$data$expt_gen,
+                   screen_size = as.numeric(jd$answers$data$screen_size))
+                    
+     d.raw.rows <- bind_rows(d.raw.rows, id)             
+  }
+  
+  
+  }
+  
+}
+
+#import data so that each row is a trial
 path <- "D:/Dropbox/School/more adjs/experiment 1b/Trib2011-3conditions/data/"
 files <- dir("D:/Dropbox/School/more adjs/experiment 1b/Trib2011-3conditions/data/anonymized-results/", 
              pattern = "*.json")
@@ -44,11 +103,20 @@ d.raw <- data.frame()
 for (f in files) {
   jf <- paste0(path, "anonymized-results/",f)
   jd <- fromJSON(file = jf)
+  if (is.element(1,jd$answers$data$expt_condition)){
+    NUM_TRIALS <- 50
+  } else{
+    NUM_TRIALS <- 26
+  }
+  NUM_TARGETS <- NUM_TRIALS - 2
   id <- data.frame(subid = f,
                    condition = jd$answers$data$expt_condition,
+                   number_of_trials = NUM_TRIALS,
+                   number_of_targets = NUM_TARGETS,
                    adj = jd$answers$data$adj,
                    verb = jd$answers$data$verb,
                    noun = jd$answers$data$noun,
+                   dir = as.character(cbind(jd$answers$data$dir)),
                    num_checked = as.numeric(jd$answers$data$num_checked),
                    noun = jd$answers$data$noun,
                    elapsed_ms = jd$answers$data$elapsed_ms,
@@ -69,11 +137,18 @@ for (f in files) {
   d.raw <- bind_rows(d.raw, id)
 }
 
+#
+```
+NOte: Manual exclusion of anon-34 due to some error in elapsed_ms where there are 27 numbers instead of 26 - must be due to an unidentified bug.
+Note: Manual exclusion of 20 duplicate participants who had already participated in either experiment 1a or 1b. 
+
+The data for these exclusions is not even read in.
+```{r}
 # Number of participants
 length(unique(d.raw$workerid))
 length(unique(d.raw$subid))
 
-num_trials = 48
+
 
 table(as.factor(d.raw$screen_size))
 table(as.factor(d.raw$condition))
@@ -89,22 +164,25 @@ table(as.factor(d.raw$condition),d.raw$language)
 ```{r}
 table(as.factor(d.raw$language))
 for (i in 1:length(d.raw$language)) {
-   if (d.raw$language[i] == "ebglish" & (!is.na(d.raw$language[i]))){
+   if (d.raw$language[i] == "rnglish" & (!is.na(d.raw$language[i]))){
    d.raw$language[i] = "english"
    }
  }
 
 ```
 
+Analysis now precedes by condition (otherwise known as experiment). The analysis for condition one is exactly the same as that for the replication of Tribushinina 2011. The Exclusion criteria are the same (except for specific cleanup of Language typos), and the analysis is the same.
 
+##Analysis of Condition (experiment) 1 -- Replication of Tribushinina 2011 using photographs of objects instead of cartoon drawings
 ```{r}
-# get rid of training items, exclude non-English speakers, exclude those described below
+# look at the right condition, get rid of training items, exclude non-English speakers, exclude those described below
 
 d <- d.raw %>%
+  filter(condition == 1) %>%
   filter(verb == "are") %>%
   filter(adj !="pretty") %>%
   filter(adj != "ugly")%>%
-  #filter(as.numeric(screen_size) >= 12) %>%
+  filter(as.numeric(screen_size) >= 7) %>%
   filter(str_detect(language, 'eng')) %>%
   select(-language) %>%
   group_by(subid) %>%
@@ -136,3 +214,525 @@ head(d)
 
 #### Prepare data for analysis - create columns etc.
 ```
+
+### Confirmatory analysis
+#### Key test
+```{r}
+#The mean zone for each adjective -- equivalent to Table 1
+zones_table <- d %>%
+  group_by(verb, adj) %>%
+  summarise(mean_zone = mean(num_checked), sds = sd(num_checked))
+
+zones_table
+```
+![Table 1 from Tribushinina, comparing the mean number of items selected for each adjective](figures/trib-tab-1-mean-zones.png)
+
+The  **key test** compares the size of the *big* zone and the *small* zone:
+```{r}
+#The key analysis -- testing whether the small zone is bigger than the big zone
+d_wilc <- d %>%
+  group_by(subid, verb, noun, adj, dir) %>%
+  summarise(zone = num_checked)%>%
+  spread(adj, zone)
+  wilcox.test(d_wilc$big, d_wilc$small, alternative = "l", paired = TRUE)
+```
+
+This experiment succeeded in replicating the key result from Tribushinina (2011). The mean number of items checked as *small* was significantly larger than the mean number of items checked as *big*.
+
+####Differences between items of different prototypicality status for each adjective
+
+```{r}
+
+d_graph <- d %>%
+  group_by(prototype_status, adj) %>%
+  summarise(mean_zone = mean(num_checked), sems = sem(num_checked), cis = ci95(num_checked))
+
+
+
+table(d_graph$adj, d_graph$prototype_status)
+str(d_graph)
+
+d_graph$adj <- factor(d_graph$adj)
+d_graph$prototype_status <- factor(d_graph$prototype_status)
+levels(d_graph$prototype_status)
+
+levels(d_graph$adj)
+levels(d_graph$prototype_status)
+
+
+friedman.test(mean_zone ~ adj | prototype_status, data = d_graph)
+
+#create graph equivalent to figure 2 -- mean number of items labeled for each adjective for each prototypicality status
+
+ggplot(d_graph, aes(x=adj, y=mean_zone, fill = prototype_status)) + geom_bar(stat = "identity", position=position_dodge()) +
+    geom_errorbar(aes(ymin=mean_zone-sems, ymax=mean_zone+sems),
+                  width=.2, position=position_dodge(.9))
+
+ggplot(d_graph, aes(x=adj, y=mean_zone, fill = prototype_status)) + geom_bar(stat = "identity", position=position_dodge()) +
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9))
+```
+
+
+![Original graph of mean number of items checked for each adjective for each prototypicality group](figures/trib-fig-2.png)
+
+Using cartoon images, there was successful replication of the finding from Tribushinina (2011) that the *big* zone was bigger for prototypically small items than for prototypically big items or neutral items. Similarly, the *small* zone was found to be bigger for prototypically big items than for prototypically small items or neutral items.However, using photographs of real objects, the replication is not as clean. While the main effect of the *small* zone being bigger than the *big* zone was replicated, the effects of prototype status were not completely replicated. The *small* one, as predicted, was indeed bigger for prototypically big items than for other items, but the *big* zone does not seem to be significantly bigger for prototypically small items than other items. The overall effect is in the right direction vis a vis prototypically big items, but not vis a vis items which are neither prototypically big nor prototypically small. This may also be what is driving the lack of significance of the overall Friedman test of zone by adjective by prototype status.
+
+```{r}
+# Friedman test of differences between objects of different prototypicality status when the adjective is big
+d_fried <- d %>%
+  filter(adj=="big")%>%
+  group_by(subid, prototype_status) %>%
+  summarise(zone = mean(num_checked))
+
+
+
+table(d_fried$subid, d_fried$prototype_status)
+str(d_fried)
+
+d_fried$subid <- factor(d_fried$subid)
+d_fried$prototype_status <- factor(d_fried$prototype_status)
+levels(d_fried$prototype_status)
+
+levels(d_fried$subid)
+levels(d_fried$prototype_status)
+
+
+friedman.test(zone ~ prototype_status  | subid, data = d_fried)
+```
+The Friedman test is significant at the .05 level (p=.03) showing that the *big* zone is significantly different between the three prototypicality statuses.
+
+```{r}
+#test the difference between prototypically big and neutral objects when the adjective is big
+d_wilc_bn <- d %>%
+  filter(adj == "big")%>%
+  filter(prototype_status != "small")%>%
+  group_by(subid, verb, prototype_status) %>%
+  summarise(zone = mean(num_checked))%>%
+  spread(prototype_status, zone)
+
+wilcox.test(d_wilc_bn$big, d_wilc_bn$neither, alternative = "l", paired = TRUE)
+```
+the *big* zone is significantly bigger for items which are neither prototypically big nor prototypically zmall than it is for items which are prototypically big.
+
+```{r}
+#test the difference between prototypically neither and small objects when the adjective is big
+d_wilc_ns <- d %>%
+  filter(adj == "big")%>%
+  filter(prototype_status != "big")%>%
+  group_by(subid, verb, prototype_status) %>%
+  summarise(zone = mean(num_checked))%>%
+  spread(prototype_status, zone)
+
+wilcox.test(d_wilc_ns$neither, d_wilc_ns$small, alternative = "l", paired = TRUE)
+```
+Contraray to prediction , the *big* zone is not significantly bigger for prototypically neutral items than for prototypically small items.
+```{r}
+#test the difference between prototypically big and small objects when the adjective is big
+d_wilc_bs <- d %>%
+  filter(adj == "big")%>%
+  filter(prototype_status != "neither")%>%
+  group_by(subid, verb, prototype_status) %>%
+  summarise(zone = mean(num_checked))%>%
+  spread(prototype_status, zone)
+
+wilcox.test(d_wilc_bs$big, d_wilc_bs$small, alternative = "l", paired = TRUE)
+```
+Contraray to prediction , the *big* zone is not significantly bigger for prototypically small items than for prototypically big items.
+
+```{r}
+# Friedman test of differences between objects of different prototypicality status when the adjective is small
+d_fried_s <- d %>%
+  filter(adj=="big")%>%
+  group_by(subid, prototype_status) %>%
+  summarise(zone = mean(num_checked))
+
+
+
+table(d_fried_s$subid, d_fried_s$prototype_status)
+str(d_fried_s)
+
+d_fried_s$subid <- factor(d_fried_s$subid)
+d_fried_s$prototype_status <- factor(d_fried_s$prototype_status)
+levels(d_fried_s$prototype_status)
+
+levels(d_fried$subid)
+levels(d_fried$prototype_status)
+
+
+friedman.test(zone ~ prototype_status  | subid, data = d_fried_s)
+```
+The Friedman test is significant at the .05 level (p=.03) showing that the *small* zone is significantly different between the three prototypicality statuses.
+
+```{r}
+#test the difference between prototypically big and neutral objects when the adjective is small
+d_wilc_sbn <- d %>%
+  filter(adj == "small")%>%
+  filter(prototype_status != "small")%>%
+  group_by(subid, verb, prototype_status) %>%
+  summarise(zone = mean(num_checked))%>%
+  spread(prototype_status, zone)
+
+wilcox.test(d_wilc_sbn$big, d_wilc_sbn$neither, alternative = "g", paired = TRUE)
+```
+As predicted, the *small* zone is significantly bigger for prototypically big items than for items that are neither prototypically big nor prototypically small.
+
+```{r}
+#test the difference between prototypically neither and small objects when the adjective is small
+d_wilc_sns <- d %>%
+  filter(adj == "small")%>%
+  filter(prototype_status != "big")%>%
+  group_by(subid, verb, prototype_status) %>%
+  summarise(zone = mean(num_checked))%>%
+  spread(prototype_status, zone)
+
+wilcox.test(d_wilc_sns$neither, d_wilc_sns$small, alternative = "g", paired = TRUE)
+```
+Contrary to prediction, the *small* zone is not significantly bigger for prototypically neutral items than for prototypically big items.
+
+```{r}
+#test the difference between prototypically big and small objects when the adjective is small
+d_wilc_sbs <- d %>%
+  filter(adj == "small")%>%
+  filter(prototype_status != "neither")%>%
+  group_by(subid, verb, prototype_status) %>%
+  summarise(zone = mean(num_checked))%>%
+  spread(prototype_status, zone)
+
+wilcox.test(d_wilc_sbs$big, d_wilc_sbs$small, alternative = "g", paired = TRUE)
+```
+As predicted the *small* zone is significantly bigger for prototypically big items than for prototypically small items.
+
+###Discussion
+Overall, there are differences between the direct replication and the version with photographs instead of cartoons. Two things were changed - both the conversion to photos and mice and chicks were switched out for bunnies and ducklings. I don't know if tht is what made a difference, but with two changes there are multiple possibilities to ivestigate.
+The results showed that the main effect still was present, where the *big* zone is smaller than the *small* zone in the case where the objects depicted are bigger than the pictures depicting them. The argument goes that this should be the case since we know that none of these things really count as big, there is a bias towards the *small* side. On the other hand, if we were just using the image in front of us to judge, then there should be no differnces across items, and the results for items bigger than and smaller than the images should be the same. Thus, a result in which the *big* zone is smaller than the *small* zone argues that we are integrating our knowledge of the real world size of the items depicted with the visual information in front of us when making adjectival judgments.
+However, there is no longer a significant difference between the *big* zone for prototypically small ad prototypically neutral items, or for prototypically big and prototypically small items. There is also no longer a significant difference between the *small* zone for prototypically neutral and protoypically big items.
+
+##Analysis of Condition (experiment) 2 -- Replication of Tribushinina 2011 using photographs of objects instead of cartoon drawings in mixed order instead of ascending/descending
+
+```{r}
+# look at the right condition, get rid of training items, exclude non-English speakers, exclude those described below
+
+d <- d.raw %>%
+  filter(condition == 2) %>%
+  filter(verb == "are") %>%
+  filter(adj !="pretty") %>%
+  filter(adj != "ugly")%>%
+  filter(as.numeric(screen_size) >= 7) %>%
+  filter(str_detect(language, 'eng')) %>%
+  select(-language) %>%
+  group_by(subid) %>%
+  mutate(perc_non_consec = sum(non_consec)/NUM_TARGETS,
+            perc_no_endpoint = (length(is_endpoint)-sum(is_endpoint))/NUM_TARGETS,
+         perc_good_endpoint = (sum(good_endpoint))/NUM_TARGETS) %>%
+  filter(perc_non_consec < .1) %>%
+  filter(perc_good_endpoint >.9) %>%
+  filter(good_endpoint == TRUE) %>%
+  filter(non_consec == FALSE) %>%
+  filter(is_endpoint == TRUE)
+for (i in 1:length(d$none_checked)) {
+   if (d$none_checked[i] == TRUE & (!is.na(d$none_checked[i]))){
+   d$num_checked[i] = 0
+   }
+ }
+
+length(unique(d$workerid))
+#for pilot A
+# d <- filter(d.raw, prototype_status != "na") %>%
+#   group_by(subid) %>%
+#   mutate(perc_non_consec = sum(non_consec)/num_trials,
+#             perc_no_endpoint = (length(is_endpoint)-sum(is_endpoint))/num_trials,
+#          perc_good_endpoint = (sum(good_endpoint))/num_trials) 
+
+#need to check for having more than 10% non_consecutive or less than 90% with the right endpoint, and exclude those participants, and then exclude any remaining trials in which there is non_consecutive data or no endpoint.  (The option for saying none of them is big is coded as 9, so that if someone checks both the none box and one of the images then it comes up as non-consecutive)
+
+head(d)
+
+#### Prepare data for analysis - create columns etc.
+```
+
+Keeping the exclusion criteria the same excludes 7 subjects, which really isn't that bad, thoughthe exclusion criteria may make less sense now that the order is mixed. The following analysis keeps the old exclusion criteria, but subsequent analyses may change this.
+
+### Confirmatory analysis
+#### Key test
+```{r}
+#The mean zone for each adjective -- equivalent to Table 1
+zones_table <- d %>%
+  group_by(verb, adj) %>%
+  summarise(mean_zone = mean(num_checked), sds = sd(num_checked))
+
+zones_table
+```
+
+
+![Table 1 from Tribushinina, comparing the mean number of items selected for each adjective](figures/trib-tab-1-mean-zones.png)
+
+The  **key test** compares the size of the *big* zone and the *small* zone:
+```{r}
+#The key analysis -- testing whether the small zone is bigger than the big zone
+d_wilc <- d %>%
+  group_by(subid, verb, noun, adj, dir) %>%
+  summarise(zone = num_checked)%>%
+  spread(adj, zone)
+  wilcox.test(d_wilc$big, d_wilc$small, alternative = "l", paired = TRUE)
+```
+
+As predicted, the main effect remains, whereby the *big* zone is significantly smaller than the *small* zone, replicating the result from Tribushinina 2011.
+
+####Differences between items of different prototypicality status for each adjective
+
+```{r}
+
+d_graph <- d %>%
+  group_by(prototype_status, adj) %>%
+  summarise(mean_zone = mean(num_checked), sems = sem(num_checked), cis = ci95(num_checked))
+
+
+
+table(d_graph$adj, d_graph$prototype_status)
+str(d_graph)
+
+d_graph$adj <- factor(d_graph$adj)
+d_graph$prototype_status <- factor(d_graph$prototype_status)
+levels(d_graph$prototype_status)
+
+levels(d_graph$adj)
+levels(d_graph$prototype_status)
+
+
+friedman.test(mean_zone ~ adj | prototype_status, data = d_graph)
+
+#create graph equivalent to figure 2 -- mean number of items labeled for each adjective for each prototypicality status
+
+ggplot(d_graph, aes(x=adj, y=mean_zone, fill = prototype_status)) + geom_bar(stat = "identity", position=position_dodge()) +
+    geom_errorbar(aes(ymin=mean_zone-sems, ymax=mean_zone+sems),
+                  width=.2, position=position_dodge(.9))
+
+ggplot(d_graph, aes(x=adj, y=mean_zone, fill = prototype_status)) + geom_bar(stat = "identity", position=position_dodge()) +
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9))
+```
+
+
+![Original graph of mean number of items checked for each adjective for each prototypicality group](figures/trib-fig-2.png)
+
+Similar to Condition 1 (real pictures, not mixed order), 
+
+
+```{r}
+# Friedman test of differences between objects of different prototypicality status when the adjective is big
+d_fried <- d %>%
+  filter(adj=="big")%>%
+  group_by(subid, prototype_status) %>%
+  summarise(zone = mean(num_checked))
+
+
+
+table(d_fried$subid, d_fried$prototype_status)
+str(d_fried)
+
+d_fried$subid <- factor(d_fried$subid)
+d_fried$prototype_status <- factor(d_fried$prototype_status)
+levels(d_fried$prototype_status)
+
+levels(d_fried$subid)
+levels(d_fried$prototype_status)
+
+
+friedman.test(zone ~ prototype_status  | subid, data = d_fried)
+```
+As predicted there are significant differences between the size of the *big* zone for objects of different prototypicality statuses.
+
+```{r}
+#test the difference between prototypically big and neutral objects when the adjective is big
+d_wilc_bn <- d %>%
+  filter(adj == "big")%>%
+  filter(prototype_status != "small")%>%
+  group_by(subid, verb, prototype_status) %>%
+  summarise(zone = mean(num_checked))%>%
+  spread(prototype_status, zone)
+
+wilcox.test(d_wilc_bn$big, d_wilc_bn$neither, alternative = "l", paired = TRUE)
+```
+As predicted, there is a significant differnce between prototypically big items and items which are neither prototypically big nor prototypically small.
+
+
+```{r}
+#test the difference between prototypically neither and small objects when the adjective is big
+d_wilc_ns <- d %>%
+  filter(adj == "big")%>%
+  filter(prototype_status != "big")%>%
+  group_by(subid, verb, prototype_status) %>%
+  summarise(zone = mean(num_checked))%>%
+  spread(prototype_status, zone)
+
+wilcox.test(d_wilc_ns$neither, d_wilc_ns$small, alternative = "l", paired = TRUE)
+```
+
+Contrary to the prediction and the finding in Tribushinina 2011, there is no significant difference between the size of the *big zone for objects that are prototypically neutral and objects that are prototypically small.
+
+```{r}
+#test the difference between prototypically big and small objects when the adjective is big
+d_wilc_bs <- d %>%
+  filter(adj == "big")%>%
+  filter(prototype_status != "neither")%>%
+  group_by(subid, verb, prototype_status) %>%
+  summarise(zone = mean(num_checked))%>%
+  spread(prototype_status, zone)
+
+wilcox.test(d_wilc_bs$big, d_wilc_bs$small, alternative = "l", paired = TRUE)
+```
+
+As predicted, the *big* zone is significantly bigger for objects that are prototypically small than for objects that are prototypically big.
+
+```{r}
+# Friedman test of differences between objects of different prototypicality status when the adjective is small
+d_fried_s <- d %>%
+  filter(adj=="big")%>%
+  group_by(subid, prototype_status) %>%
+  summarise(zone = mean(num_checked))
+
+
+
+table(d_fried_s$subid, d_fried_s$prototype_status)
+str(d_fried_s)
+
+d_fried_s$subid <- factor(d_fried_s$subid)
+d_fried_s$prototype_status <- factor(d_fried_s$prototype_status)
+levels(d_fried_s$prototype_status)
+
+levels(d_fried$subid)
+levels(d_fried$prototype_status)
+
+
+friedman.test(zone ~ prototype_status  | subid, data = d_fried_s)
+```
+As predicted, there are significant differences in the size of the *small* zone for items with different prortypicality status.
+
+```{r}
+#test the difference between prototypically big and neutral objects when the adjective is small
+d_wilc_sbn <- d %>%
+  filter(adj == "small")%>%
+  filter(prototype_status != "small")%>%
+  group_by(subid, verb, prototype_status) %>%
+  summarise(zone = mean(num_checked))%>%
+  spread(prototype_status, zone)
+
+wilcox.test(d_wilc_sbn$big, d_wilc_sbn$neither, alternative = "g", paired = TRUE)
+```
+
+As predicted, the *small* zone is significantly bigger for items that are prototypically big than for items that are neither prototypically small nor prototypically big.
+
+```{r}
+#test the difference between prototypically neither and small objects when the adjective is small
+d_wilc_sns <- d %>%
+  filter(adj == "small")%>%
+  filter(prototype_status != "big")%>%
+  group_by(subid, verb, prototype_status) %>%
+  summarise(zone = mean(num_checked))%>%
+  spread(prototype_status, zone)
+
+wilcox.test(d_wilc_sns$neither, d_wilc_sns$small, alternative = "g", paired = TRUE)
+```
+
+Contrary to the prediction, and to the finding in Tribushinina 2011, there *small* zone is not significantly different for items that are prototypically small, and items that are neither prototypically big nor prortypically small.
+
+```{r}
+#test the difference between prototypically big and small objects when the adjective is small
+d_wilc_sbs <- d %>%
+  filter(adj == "small")%>%
+  filter(prototype_status != "neither")%>%
+  group_by(subid, verb, prototype_status) %>%
+  summarise(zone = mean(num_checked))%>%
+  spread(prototype_status, zone)
+
+wilcox.test(d_wilc_sbs$big, d_wilc_sbs$small, alternative = "g", paired = TRUE)
+```
+
+As predicted, the *small* zone is significantly bigger for items that are prototypically big than for items that are prototypicallly small.
+
+###Discussion - Condition (experiment) 2
+Overall, the main effect is still found, as predicted, wwhere the *big* zone is smaller than the *small* zone. However, the data is, not unexpectedly, messier. The overall trends within the prototypicality status distinctions are still found, though the details are not exact. The difference between the *big* zone for prototypically neutral and prototypically small items is not significant. Neither is the the difference between the *small* zone for these two categories. In other words the small and neutral objects seem to be behaving similarly. This again may possibly be due to the introduction of new small stimuli without proper piloting - the replacement of mice and chicks by bunnies and ducklings. In order to further investigate this question it is worth making the graphs excluding these two items for this experiment, for condition 1 and for experiment 1a - the direct replication of Tribushinina 2011.
+
+### Discussion - differences between condition 1 and 2 - whether or not the order is mixed or not
+In experiemnt 2 (mixed order) it seems that the small items are behaving like the neutral items, but that both are different from the big items. Howeer, in experiment 1 (ordered real pics) the data is more complicated. The neutral one seem to behave closer to the big ones, but the overall distinction between prototypically big and small items is maintained.
+
+##Analysis of Condition (experiment) 3 -- Reverse of Tribushinina 2011 using items that are smaller than the images and \ in mixed order instead of ascending/descending
+
+```{r}
+# look at the right condition, get rid of training items, exclude non-English speakers, exclude those described below
+
+d <- d.raw %>%
+  filter(condition == 3) %>%
+  filter(verb == "are") %>%
+  filter(adj !="pretty") %>%
+  filter(adj != "ugly")%>%
+  filter(as.numeric(screen_size) >= 7) %>%
+  filter(str_detect(language, 'eng')) %>%
+  select(-language) %>%
+  group_by(subid) %>%
+  mutate(perc_non_consec = sum(non_consec)/NUM_TARGETS,
+            perc_no_endpoint = (length(is_endpoint)-sum(is_endpoint))/NUM_TARGETS,
+         perc_good_endpoint = (sum(good_endpoint))/NUM_TARGETS) %>%
+  filter(perc_non_consec < .1) %>%
+  filter(perc_good_endpoint >.9) %>%
+  filter(good_endpoint == TRUE) %>%
+  filter(non_consec == FALSE) %>%
+  filter(is_endpoint == TRUE)
+for (i in 1:length(d$none_checked)) {
+   if (d$none_checked[i] == TRUE & (!is.na(d$none_checked[i]))){
+   d$num_checked[i] = 0
+   }
+ }
+
+length(unique(d$workerid))
+#for pilot A
+# d <- filter(d.raw, prototype_status != "na") %>%
+#   group_by(subid) %>%
+#   mutate(perc_non_consec = sum(non_consec)/num_trials,
+#             perc_no_endpoint = (length(is_endpoint)-sum(is_endpoint))/num_trials,
+#          perc_good_endpoint = (sum(good_endpoint))/num_trials) 
+
+#need to check for having more than 10% non_consecutive or less than 90% with the right endpoint, and exclude those participants, and then exclude any remaining trials in which there is non_consecutive data or no endpoint.  (The option for saying none of them is big is coded as 9, so that if someone checks both the none box and one of the images then it comes up as non-consecutive)
+
+head(d)
+
+#### Prepare data for analysis - create columns etc.
+```
+Again, despite the need to revisit the exclusion criteria (they are currently too harsh due to the change to mixed order), only 8 subjects are totally excluded according to the old criteria.
+
+### Confirmatory analysis
+#### Key test
+```{r}
+#The mean zone for each adjective -- equivalent to Table 1
+zones_table <- d %>%
+  group_by(verb, adj) %>%
+  summarise(mean_zone = mean(num_checked), sds = sd(num_checked))
+
+zones_table
+```
+
+The  **key test** compares the size of the *big* zone and the *small* zone:
+```{r}
+#The key analysis -- testing whether the small zone is bigger than the big zone
+d_wilc <- d %>%
+  group_by(subid, verb, noun, adj, dir) %>%
+  summarise(zone = num_checked)%>%
+  spread(adj, zone)
+  wilcox.test(d_wilc$small, d_wilc$big, alternative = "l", paired = TRUE)
+```
+
+As predicted, when the items depicted are smaller than the images, the *big* zone is bigger than the *small* zone - the reverse of the results in Tribushinina 2011, experiment 1a, and conditions 1 and 2.
+
+
+```{r}
+#visualization of the data
+##mean number of items checked by noun, by adjective
+
+d.obj <- d %>%
+  group_by(noun, adj) %>%
+  summarize(m_zone = mean(num_checked))
+
+d.obj
+```
+

@@ -171,7 +171,7 @@ while (AreAdjacentNouns(stim_set) == true) {
 	stim_set = shuffle(stim_set);
 }
 //adds the pretest items to the beginning of the stimulus array
-stim_set.unshift({noun:"flower", order: getNumOrder(), adj: "pretty", vb: trial_verb}, {noun:"car", order: getNumOrder(), adj:"ugly", vb: trial_verb});
+stim_set.unshift({noun:"flower", order: getNumOrder(), adj: "pretty", dir: 'na', vb: trial_verb}, {noun:"car", order: getNumOrder(), adj:"ugly", dir: 'na', vb: trial_verb});
 
 var totalTrials = stim_set.length;
 //gets the right audio file for the trial
