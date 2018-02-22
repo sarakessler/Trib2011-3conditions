@@ -1,6 +1,8 @@
 ---
 title: "Tribushinina 2011-3 conditions"
-output: html_notebook
+output:
+  html_notebook: default
+  pdf_document: default
 ---
 This is an analysis of three experiments - The paradigm for all is based on the first experiment reported in Tribushinina 2011.
 Experiment 1 (condition 1) - Same as Tribushinina 2011 but with real pictures rather than cartoon images. 
@@ -18,7 +20,7 @@ The exclusion criteria for experiments 2 and 3 need modifying - lack of adjacenc
 
 There are two separate types of analyses - the first is the same as the analysis in Tribushinina 2011, using non-parametric statistics (Wilcoxon) to show that the difference between the big zone and the small zone is statistically significant in the direction predicted.
 This analysis uses a data frame in which each trial is a row.
-The other type of analysis is binary logistic regression. This uses a data frame in which each row represents a check box (so that each trial spans seven rows). The analysis looks at the likelihood of each checkbox being checked and asks at which box the proabblility switches tob e more likely to be checked (that can be thought of as the threshold of the adjective, or the determiner of the size of the zone). 
+The other type of analysis is binary logistic regression. This uses a data frame in which each row represents a check box (so that each trial spans seven rows). The analysis looks at the likelihood of each checkbox being checked and asks at which box the proabblility switches to be more likely to be checked (that can be thought of as the threshold of the adjective, or the determiner of the size of the zone). 
 
 ```{r}
 ###Data Preparation
@@ -29,6 +31,7 @@ library(tidyverse)
 library(stringr)
 library(rjson)
 library(ordinal)
+library(coin)
 
 sem <- function(x) {sd(x, na.rm=TRUE) / sqrt(length(x))}
 ci95 <- function(x) {sem(x) * 1.96}
@@ -38,61 +41,65 @@ addnas <- function (x) {if (length(x)==0){
   return(result)
 }
 
-####Import data where each row is a check box so that each trial is 7 rows.
-
-path <- "D:/Dropbox/School/more adjs/experiment 1b/Trib2011-3conditions/data/"
-files <- dir("D:/Dropbox/School/more adjs/experiment 1b/Trib2011-3conditions/data/anonymized-results/", 
-             pattern = "*.json")
-d.raw.rows <- data.frame()
-NUM_PICS <- 7
-
-for (f in files) {
-  jf <- paste0(path, "anonymized-results/",f)
-  jd <- fromJSON(file = jf)
-  if (is.element(1,jd$answers$data$expt_condition)){
-    NUM_TRIALS <- 50
-  } else{
-    NUM_TRIALS <- 26
-  }
-  for (j in 1:NUM_TRIALS){
-    for(i in 1:NUM_PICS){
-    if (is.element(i, jd$answers$data$sizes[j][[1]])) {
-      is_checked <- 1
-    } else {
-      is_checked <- 0
-    }
-    id <- data.frame(subid = f,
-                   box_num = i,
-                   condition = jd$answers$data$expt_condition[j],
-                   box_checked = is_checked,
-                   ratio_prev = jd$answers$data$sizes[j-1][[1]]/jd$answers$data$sizes[j][[1]],
-                   ratio_next = jd$answers$data$sizes[j+1][[1]]/jd$answers$data$sizes[j][[1]],
-                   adj = jd$answers$data$adj[j],
-                   verb = jd$answers$data$verb[j],
-                   dir = cbind(jd$answers$data$dir[j]),
-                   noun = jd$answers$data$noun[j],
-                   num_checked = as.numeric(jd$answers$data$num_checked[j]),
-                   elapsed_ms = jd$answers$data$elapsed_ms[j],
-                   elapsed_first_click_ms = jd$answers$data$elapsed_first_click_ms[j],
-                   workerid = jd$WorkerId,
-                   language = tolower(jd$answers$data$lang),
-                   prototype_status = jd$answers$data$prototype_status[j],
-                   non_consec = jd$answers$data$non_consecutive[j],
-                   is_endpoint = jd$answers$data$is_endpoint[j],
-                   endpoint = as.character(unlist(jd$answers$data$endpoint[j])),
-                   good_endpoint = jd$answers$data$good_ep[j],
-                   none_checked = jd$answers$data$none_checked[j],
-                   all_checked = jd$answers$data$all_checked[j],
-                   comments = jd$answers$data$expt_gen,
-                   screen_size = as.numeric(jd$answers$data$screen_size))
-                    
-     d.raw.rows <- bind_rows(d.raw.rows, id)             
-  }
-  
-  
-  }
-  
-}
+# ####Import data where each row is a check box so that each trial is 7 rows.
+# 
+# path <- "D:/Dropbox/School/more adjs/experiment 1b/Trib2011-3conditions/data/"
+# files <- dir("D:/Dropbox/School/more adjs/experiment 1b/Trib2011-3conditions/data/anonymized-results/", 
+#              pattern = "*.json")
+# d.raw.rows <- data.frame()
+# NUM_PICS <- 7
+# 
+# for (f in files) {
+#   jf <- paste0(path, "anonymized-results/",f)
+#   jd <- fromJSON(file = jf)
+#   if (is.element(1,jd$answers$data$expt_condition)){
+#     NUM_TRIALS <- 50
+#   } else{
+#     NUM_TRIALS <- 26
+#   }
+#   for (j in 1:NUM_TRIALS){
+#     for(i in 1:NUM_PICS){
+#     if (is.element(i, jd$answers$data$sizes[j][[1]])) {
+#       is_checked <- 1
+#     } else {
+#       is_checked <- 0
+#     }
+#     id <- data.frame(subid = f,
+#                    box_num = i,
+#                    condition = jd$answers$data$expt_condition[j],
+#                    box_checked = is_checked,
+#                    ratio_prev = jd$answers$data$sizes[j-1][[1]]/jd$answers$data$sizes[j][[1]],
+#                    ratio_next = jd$answers$data$sizes[j+1][[1]]/jd$answers$data$sizes[j][[1]],
+#                   trial_num = j,
+#                    pic_size = jd$answers$data$sizes[j][[1]],
+#                    difference_from_prev = jd$answers$data$sizes[j-1][[1]]-jd$answers$data$sizes[j-][[1]],
+#                    difference_from_next = jd$answers$data$sizes[j-+][[1]]-jd$answers$data$sizes[j-][[1]],
+#                    adj = jd$answers$data$adj[j],
+#                    verb = jd$answers$data$verb[j],
+#                    dir = cbind(jd$answers$data$dir[j]),
+#                    noun = jd$answers$data$noun[j],
+#                    num_checked = as.numeric(jd$answers$data$num_checked[j]),
+#                    elapsed_ms = jd$answers$data$elapsed_ms[j],
+#                    elapsed_first_click_ms = jd$answers$data$elapsed_first_click_ms[j],
+#                    workerid = jd$WorkerId,
+#                    language = tolower(jd$answers$data$lang),
+#                    prototype_status = jd$answers$data$prototype_status[j],
+#                    non_consec = jd$answers$data$non_consecutive[j],
+#                    is_endpoint = jd$answers$data$is_endpoint[j],
+#                    endpoint = as.character(unlist(jd$answers$data$endpoint[j])),
+#                    good_endpoint = jd$answers$data$good_ep[j],
+#                    none_checked = jd$answers$data$none_checked[j],
+#                    all_checked = jd$answers$data$all_checked[j],
+#                    comments = jd$answers$data$expt_gen,
+#                    screen_size = as.numeric(jd$answers$data$screen_size))
+#                     
+#      d.raw.rows <- bind_rows(d.raw.rows, id)             
+#   }
+#   
+#   
+#   }
+#   
+# }
 
 #import data so that each row is a trial
 path <- "D:/Dropbox/School/more adjs/experiment 1b/Trib2011-3conditions/data/"
@@ -118,7 +125,6 @@ for (f in files) {
                    noun = jd$answers$data$noun,
                    dir = as.character(cbind(jd$answers$data$dir)),
                    num_checked = as.numeric(jd$answers$data$num_checked),
-                   noun = jd$answers$data$noun,
                    elapsed_ms = jd$answers$data$elapsed_ms,
                    elapsed_first_click_ms = jd$answers$data$elapsed_first_click_ms,
                    workerid = jd$WorkerId,
@@ -139,7 +145,7 @@ for (f in files) {
 
 #
 ```
-NOte: Manual exclusion of anon-34 due to some error in elapsed_ms where there are 27 numbers instead of 26 - must be due to an unidentified bug.
+Note: Manual exclusion of anon-34 due to some error in elapsed_ms where there are 27 numbers instead of 26 - must be due to some weird unidentified bug.
 Note: Manual exclusion of 20 duplicate participants who had already participated in either experiment 1a or 1b. 
 
 The data for these exclusions is not even read in.
@@ -182,18 +188,18 @@ d <- d.raw %>%
   filter(verb == "are") %>%
   filter(adj !="pretty") %>%
   filter(adj != "ugly")%>%
-  filter(as.numeric(screen_size) >= 7) %>%
+  filter(as.numeric(screen_size) >= 12) %>%
   filter(str_detect(language, 'eng')) %>%
   select(-language) %>%
   group_by(subid) %>%
-  mutate(perc_non_consec = sum(non_consec)/num_trials,
-            perc_no_endpoint = (length(is_endpoint)-sum(is_endpoint))/num_trials,
-         perc_good_endpoint = (sum(good_endpoint))/num_trials) %>%
+  mutate(perc_non_consec = sum(non_consec)/number_of_targets,
+            perc_no_endpoint = (length(is_endpoint)-sum(is_endpoint))/number_of_targets,
+         perc_good_endpoint = (sum(good_endpoint))/number_of_targets) %>%
   filter(perc_non_consec < .1) %>%
   filter(perc_good_endpoint >.9) %>%
+  filter(is_endpoint == TRUE) %>%
   filter(good_endpoint == TRUE) %>%
-  filter(non_consec == FALSE) %>%
-  filter(is_endpoint == TRUE)
+  filter(non_consec == FALSE)
 for (i in 1:length(d$none_checked)) {
    if (d$none_checked[i] == TRUE & (!is.na(d$none_checked[i]))){
    d$num_checked[i] = 0
@@ -201,6 +207,8 @@ for (i in 1:length(d$none_checked)) {
  }
 
 length(unique(d$workerid))
+
+table(as.factor(d$workerid))
 #for pilot A
 # d <- filter(d.raw, prototype_status != "na") %>%
 #   group_by(subid) %>%
@@ -235,6 +243,11 @@ d_wilc <- d %>%
   summarise(zone = num_checked)%>%
   spread(adj, zone)
   wilcox.test(d_wilc$big, d_wilc$small, alternative = "l", paired = TRUE)
+  
+wilcoxsign_test(d_wilc$big ~ d_wilc$small, distribution="exact")
+
+write.table(d_wilc, "D:/Dropbox/School/more adjs/experiment 1b/Trib2011-3conditions/data/d_wilc.txt", sep="\t")
+
 ```
 
 This experiment succeeded in replicating the key result from Tribushinina (2011). The mean number of items checked as *small* was significantly larger than the mean number of items checked as *big*.
@@ -264,19 +277,130 @@ friedman.test(mean_zone ~ adj | prototype_status, data = d_graph)
 
 #create graph equivalent to figure 2 -- mean number of items labeled for each adjective for each prototypicality status
 
-ggplot(d_graph, aes(x=adj, y=mean_zone, fill = prototype_status)) + geom_bar(stat = "identity", position=position_dodge()) +
-    geom_errorbar(aes(ymin=mean_zone-sems, ymax=mean_zone+sems),
-                  width=.2, position=position_dodge(.9))
+#ggplot(d_graph, aes(x=adj, y=mean_zone, fill = prototype_status)) + geom_bar(stat = "identity", position=position_dodge()) +
+#    geom_errorbar(aes(ymin=mean_zone-sems, ymax=mean_zone+sems),
+#                  width=.2, position=position_dodge(.9))
 
 ggplot(d_graph, aes(x=adj, y=mean_zone, fill = prototype_status)) + geom_bar(stat = "identity", position=position_dodge()) +
     geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
-                  width=.2, position=position_dodge(.9))
+                  width=.2, position=position_dodge(.9)) + ggtitle("Experiment 1c-con1 - real pics ordered - Mean zone by prototype status")
+
+#graph for cogsci paper
+theme_set(theme_bw(base_size = 18))
+png(filename = "fig-exp2-res.png", width = 601, height = 373)
+print(ggplot(d_graph, aes(x=adj, y=mean_zone, fill = prototype_status)) + 
+        geom_bar(stat = "identity", position=position_dodge()) +
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis), width=.2, position=position_dodge(.9)) + 
+      ggtitle("Mean zone by prototypicality status") +  
+      xlab("Adjecitve in the question") +
+      scale_fill_brewer(name="Prot.\nstatus", breaks=c("big", "neither", "small"),
+                         labels=c("Big", "Neutral", "Small"), palette="YlGnBu")+ 
+     ylab("Mean num. of images selected") + 
+      theme(plot.title = element_text(lineheight=.8, face="bold", hjust=0.5)) )
+
+
+dev.off()
+
+#graph for semprag talk
+theme_set(theme_bw(base_size = 18))
+png(filename = "semprag-fig-exp2-res.png", width = 601, height = 373)
+print(ggplot(d_graph, aes(x=adj, y=mean_zone, fill = prototype_status)) + 
+        geom_bar(stat = "identity", position=position_dodge()) +
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis), width=.2, position=position_dodge(.9)) + 
+      ggtitle("Mean zone by prototypicality status") +  
+      xlab("Adjecitve in the question") +
+      scale_fill_discrete(name="Prot.\nstatus", breaks=c("big", "neither", "small"),
+                         labels=c("Big", "Neutral", "Small"))+ 
+     ylab("Mean num. of images selected") + 
+      theme(plot.title = element_text(lineheight=.8, face="bold", hjust=0.5)) )
+
+
+dev.off()
 ```
 
 
 ![Original graph of mean number of items checked for each adjective for each prototypicality group](figures/trib-fig-2.png)
 
-Using cartoon images, there was successful replication of the finding from Tribushinina (2011) that the *big* zone was bigger for prototypically small items than for prototypically big items or neutral items. Similarly, the *small* zone was found to be bigger for prototypically big items than for prototypically small items or neutral items.However, using photographs of real objects, the replication is not as clean. While the main effect of the *small* zone being bigger than the *big* zone was replicated, the effects of prototype status were not completely replicated. The *small* one, as predicted, was indeed bigger for prototypically big items than for other items, but the *big* zone does not seem to be significantly bigger for prototypically small items than other items. The overall effect is in the right direction vis a vis prototypically big items, but not vis a vis items which are neither prototypically big nor prototypically small. This may also be what is driving the lack of significance of the overall Friedman test of zone by adjective by prototype status.
+Using cartoon images, there was successful replication of the finding from Tribushinina (2011) that the *big* zone was bigger for prototypically small items than for prototypically big items or neutral items. Similarly, the *small* zone was found to be bigger for prototypically big items than for prototypically small items or neutral items. However, using photographs of real objects, the replication is not as clean. While the main effect of the *small* zone being bigger than the *big* zone was replicated, the effects of prototype status were not completely replicated. The *small* one, as predicted, was indeed bigger for prototypically big items than for other items, but the *big* zone does not seem to be significantly bigger for prototypically small items than other items. The overall effect is in the right direction vis a vis prototypically big items, but not vis a vis items which are neither prototypically big nor prototypically small. This may also be what is driving the lack of significance of the overall Friedman test of zone by adjective by prototype status.
+
+```{r}
+#graph without ducklings and bunnies
+d_graph_ndb <- d %>%
+  filter(noun != "bunny") %>%
+  filter(noun != "duckling") %>%
+  group_by(prototype_status, adj) %>%
+  summarise(mean_zone = mean(num_checked), sems = sem(num_checked), cis = ci95(num_checked))
+
+ggplot(d_graph_ndb, aes(x=adj, y=mean_zone, fill = prototype_status)) + geom_bar(stat = "identity", position=position_dodge()) +
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9))
+```
+
+```{r}
+by_obj_s <- d %>%
+  filter(prototype_status == "small")%>%
+  group_by(noun, adj)%>%
+  summarise(mean_zone = mean(num_checked), sems = sem(num_checked), cis = ci95(num_checked))
+#graph of mean number checked by object for the prototypically small objects
+
+ggplot(by_obj_s, aes(x=adj, y=mean_zone, fill = noun)) + geom_bar(stat = "identity", position=position_dodge()) +
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9))
+
+```
+
+```{r}
+by_obj_b <- d %>%
+  filter(prototype_status == "big")%>%
+  group_by(noun, adj)%>%
+  summarise(mean_zone = mean(num_checked), sems = sem(num_checked), cis = ci95(num_checked))
+#graph of mean number checked by object for the prototypically big objects
+
+ggplot(by_obj_b, aes(x=adj, y=mean_zone, fill = noun)) + geom_bar(stat = "identity", position=position_dodge()) +
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9))
+
+```
+
+```{r}
+by_obj_n <- d %>%
+  filter(prototype_status == "neither")%>%
+  group_by(noun, adj)%>%
+  summarise(mean_zone = mean(num_checked), sems = sem(num_checked), cis = ci95(num_checked))
+#graph of mean number checked by object for the objects neither prototypically small nor prototypically big
+
+ggplot(by_obj_n, aes(x=adj, y=mean_zone, fill = noun)) + geom_bar(stat = "identity", position=position_dodge()) +
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9))
+
+```
+
+```{r}
+by_obj_adjb <- d %>%
+  filter(adj == "big")%>%
+  group_by(noun, prototype_status)%>%
+  summarise(mean_zone = mean(num_checked), sems = sem(num_checked), cis = ci95(num_checked))
+#graph of mean number checked by object when the adjective is *big*
+
+ggplot(by_obj_adjb, aes(x=reorder(noun, mean_zone), y=mean_zone, fill=prototype_status)) + geom_bar(stat = "identity", position=position_dodge()) +
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9))
+
+```
+
+
+```{r}
+by_obj_adjs <- d %>%
+  filter(adj == "small")%>%
+  group_by(noun, prototype_status)%>%
+  summarise(mean_zone = mean(num_checked), sems = sem(num_checked), cis = ci95(num_checked))
+#graph of mean number checked by object when the adjective is *big*
+
+ggplot(by_obj_adjb, aes(x=reorder(noun, mean_zone), y=mean_zone, fill=prototype_status)) + geom_bar(stat = "identity", position=position_dodge()) +
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9))
+
+```
 
 ```{r}
 # Friedman test of differences between objects of different prototypicality status when the adjective is big
@@ -284,17 +408,19 @@ d_fried <- d %>%
   filter(adj=="big")%>%
   group_by(subid, prototype_status) %>%
   summarise(zone = mean(num_checked))
+```
 
-
-
+```{r echo=FALSE}
 table(d_fried$subid, d_fried$prototype_status)
 str(d_fried)
+```
 
+```{r}
 d_fried$subid <- factor(d_fried$subid)
 d_fried$prototype_status <- factor(d_fried$prototype_status)
 levels(d_fried$prototype_status)
 
-levels(d_fried$subid)
+#levels(d_fried$subid)
 levels(d_fried$prototype_status)
 
 
@@ -312,8 +438,10 @@ d_wilc_bn <- d %>%
   spread(prototype_status, zone)
 
 wilcox.test(d_wilc_bn$big, d_wilc_bn$neither, alternative = "l", paired = TRUE)
+
+wilcoxsign_test(d_wilc_bn$big ~ d_wilc_bn$neither, distribution="exact")
 ```
-the *big* zone is significantly bigger for items which are neither prototypically big nor prototypically zmall than it is for items which are prototypically big.
+the *big* zone is significantly bigger for items which are neither prototypically big nor prototypically small than it is for items which are prototypically big.
 
 ```{r}
 #test the difference between prototypically neither and small objects when the adjective is big
@@ -325,6 +453,8 @@ d_wilc_ns <- d %>%
   spread(prototype_status, zone)
 
 wilcox.test(d_wilc_ns$neither, d_wilc_ns$small, alternative = "l", paired = TRUE)
+
+wilcoxsign_test(d_wilc_ns$neither ~ d_wilc_ns$small, distribution="exact")
 ```
 Contraray to prediction , the *big* zone is not significantly bigger for prototypically neutral items than for prototypically small items.
 ```{r}
@@ -337,26 +467,33 @@ d_wilc_bs <- d %>%
   spread(prototype_status, zone)
 
 wilcox.test(d_wilc_bs$big, d_wilc_bs$small, alternative = "l", paired = TRUE)
+
+write.table(d_wilc_bs, "D:/Dropbox/School/more adjs/experiment 1b/Trib2011-3conditions/data/d_wilc_bs.txt", sep="\t")
+
+wilcoxsign_test(d_wilc_bs$big ~ d_wilc_bs$small, distribution="exact")
 ```
 Contraray to prediction , the *big* zone is not significantly bigger for prototypically small items than for prototypically big items.
 
 ```{r}
 # Friedman test of differences between objects of different prototypicality status when the adjective is small
 d_fried_s <- d %>%
-  filter(adj=="big")%>%
+  filter(adj=="small")%>%
   group_by(subid, prototype_status) %>%
   summarise(zone = mean(num_checked))
+```
 
-
-
+```{r echo=FALSE}
 table(d_fried_s$subid, d_fried_s$prototype_status)
 str(d_fried_s)
+```
+
+```{r}
 
 d_fried_s$subid <- factor(d_fried_s$subid)
 d_fried_s$prototype_status <- factor(d_fried_s$prototype_status)
 levels(d_fried_s$prototype_status)
 
-levels(d_fried$subid)
+#levels(d_fried$subid)
 levels(d_fried$prototype_status)
 
 
@@ -374,6 +511,8 @@ d_wilc_sbn <- d %>%
   spread(prototype_status, zone)
 
 wilcox.test(d_wilc_sbn$big, d_wilc_sbn$neither, alternative = "g", paired = TRUE)
+
+wilcoxsign_test(d_wilc_sbn$big ~ d_wilc_sbn$neither, distribution="exact")
 ```
 As predicted, the *small* zone is significantly bigger for prototypically big items than for items that are neither prototypically big nor prototypically small.
 
@@ -387,6 +526,7 @@ d_wilc_sns <- d %>%
   spread(prototype_status, zone)
 
 wilcox.test(d_wilc_sns$neither, d_wilc_sns$small, alternative = "g", paired = TRUE)
+wilcoxsign_test(d_wilc_sns$neither ~ d_wilc_sns$small, distribution="exact")
 ```
 Contrary to prediction, the *small* zone is not significantly bigger for prototypically neutral items than for prototypically big items.
 
@@ -400,13 +540,14 @@ d_wilc_sbs <- d %>%
   spread(prototype_status, zone)
 
 wilcox.test(d_wilc_sbs$big, d_wilc_sbs$small, alternative = "g", paired = TRUE)
+wilcoxsign_test(d_wilc_sbs$big ~ d_wilc_sbs$small, distribution="exact")
 ```
 As predicted the *small* zone is significantly bigger for prototypically big items than for prototypically small items.
 
 ###Discussion
 Overall, there are differences between the direct replication and the version with photographs instead of cartoons. Two things were changed - both the conversion to photos and mice and chicks were switched out for bunnies and ducklings. I don't know if tht is what made a difference, but with two changes there are multiple possibilities to ivestigate.
 The results showed that the main effect still was present, where the *big* zone is smaller than the *small* zone in the case where the objects depicted are bigger than the pictures depicting them. The argument goes that this should be the case since we know that none of these things really count as big, there is a bias towards the *small* side. On the other hand, if we were just using the image in front of us to judge, then there should be no differnces across items, and the results for items bigger than and smaller than the images should be the same. Thus, a result in which the *big* zone is smaller than the *small* zone argues that we are integrating our knowledge of the real world size of the items depicted with the visual information in front of us when making adjectival judgments.
-However, there is no longer a significant difference between the *big* zone for prototypically small ad prototypically neutral items, or for prototypically big and prototypically small items. There is also no longer a significant difference between the *small* zone for prototypically neutral and protoypically big items.
+However, there is no longer a significant difference between the *big* zone for prototypically small and prototypically neutral items, or for prototypically big and prototypically small items. There is also no longer a significant difference between the *small* zone for prototypically neutral and protoypically big items.
 
 ##Analysis of Condition (experiment) 2 -- Replication of Tribushinina 2011 using photographs of objects instead of cartoon drawings in mixed order instead of ascending/descending
 
@@ -418,7 +559,7 @@ d <- d.raw %>%
   filter(verb == "are") %>%
   filter(adj !="pretty") %>%
   filter(adj != "ugly")%>%
-  filter(as.numeric(screen_size) >= 7) %>%
+  filter(as.numeric(screen_size) >= 12) %>%
   filter(str_detect(language, 'eng')) %>%
   select(-language) %>%
   group_by(subid) %>%
@@ -486,12 +627,14 @@ As predicted, the main effect remains, whereby the *big* zone is significantly s
 d_graph <- d %>%
   group_by(prototype_status, adj) %>%
   summarise(mean_zone = mean(num_checked), sems = sem(num_checked), cis = ci95(num_checked))
+```
 
-
-
+```{r echo=FALSE}
 table(d_graph$adj, d_graph$prototype_status)
 str(d_graph)
+```
 
+```{r}
 d_graph$adj <- factor(d_graph$adj)
 d_graph$prototype_status <- factor(d_graph$prototype_status)
 levels(d_graph$prototype_status)
@@ -504,13 +647,31 @@ friedman.test(mean_zone ~ adj | prototype_status, data = d_graph)
 
 #create graph equivalent to figure 2 -- mean number of items labeled for each adjective for each prototypicality status
 
-ggplot(d_graph, aes(x=adj, y=mean_zone, fill = prototype_status)) + geom_bar(stat = "identity", position=position_dodge()) +
-    geom_errorbar(aes(ymin=mean_zone-sems, ymax=mean_zone+sems),
-                  width=.2, position=position_dodge(.9))
+#ggplot(d_graph, aes(x=adj, y=mean_zone, fill = prototype_status)) + geom_bar(stat = "identity", position=position_dodge()) +
+#    geom_errorbar(aes(ymin=mean_zone-sems, ymax=mean_zone+sems),
+#                 width=.2, position=position_dodge(.9)) + ggtitle("Experiment 1c-con1 - real pics ordered - Mean zone by prototype status")
 
 ggplot(d_graph, aes(x=adj, y=mean_zone, fill = prototype_status)) + geom_bar(stat = "identity", position=position_dodge()) +
     geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
-                  width=.2, position=position_dodge(.9))
+                  width=.2, position=position_dodge(.9)) + ggtitle("Experiment 1c-con2 - real pics random order - Mean zone by prototype status")
+
+
+#graph for semprag talk
+theme_set(theme_bw(base_size = 18))
+png(filename = "semprag-fig-exp2a-res.png", width = 601, height = 373)
+print(ggplot(d_graph, aes(x=adj, y=mean_zone, fill = prototype_status)) + 
+        geom_bar(stat = "identity", position=position_dodge()) +
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis), width=.2, position=position_dodge(.9)) + 
+      ggtitle("Mean zone by prototypicality status - mixed order") +  
+      xlab("Adjecitve in the question") +
+      scale_fill_discrete(name="Prot.\nstatus", breaks=c("big", "neither", "small"),
+                         labels=c("Big", "Neutral", "Small"))+ 
+     ylab("Mean num. of images selected") + 
+      theme(plot.title = element_text(lineheight=.8, face="bold", hjust=0.5)) )
+
+
+dev.off()
+
 ```
 
 
@@ -520,22 +681,104 @@ Similar to Condition 1 (real pictures, not mixed order),
 
 
 ```{r}
+#graph without ducklings and bunnies
+d_graph_ndb <- d %>%
+  filter(noun != "bunny") %>%
+  filter(noun != "duckling") %>%
+  group_by(prototype_status, adj) %>%
+  summarise(mean_zone = mean(num_checked), sems = sem(num_checked), cis = ci95(num_checked))
+
+ggplot(d_graph_ndb, aes(x=adj, y=mean_zone, fill = prototype_status)) + geom_bar(stat = "identity", position=position_dodge()) +
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9))
+```
+
+```{r}
+by_obj_s <- d %>%
+  filter(prototype_status == "small")%>%
+  group_by(noun, adj)%>%
+  summarise(mean_zone = mean(num_checked), sems = sem(num_checked), cis = ci95(num_checked))
+#graph of mean number checked by object for the prototypically small objects
+
+ggplot(by_obj_s, aes(x=adj, y=mean_zone, fill = noun)) + geom_bar(stat = "identity", position=position_dodge()) +
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9))
+
+```
+
+```{r}
+by_obj_b <- d %>%
+  filter(prototype_status == "big")%>%
+  group_by(noun, adj)%>%
+  summarise(mean_zone = mean(num_checked), sems = sem(num_checked), cis = ci95(num_checked))
+#graph of mean number checked by object for the prototypically big objects
+
+ggplot(by_obj_b, aes(x=adj, y=mean_zone, fill = noun)) + geom_bar(stat = "identity", position=position_dodge()) +
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9))
+
+```
+
+```{r}
+by_obj_n <- d %>%
+  filter(prototype_status == "neither")%>%
+  group_by(noun, adj)%>%
+  summarise(mean_zone = mean(num_checked), sems = sem(num_checked), cis = ci95(num_checked))
+#graph of mean number checked by object for the objects neither prototypically small nor prototypically big
+
+ggplot(by_obj_n, aes(x=adj, y=mean_zone, fill = noun)) + geom_bar(stat = "identity", position=position_dodge()) +
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9))
+
+```
+
+```{r}
+by_obj_adjb <- d %>%
+  filter(adj == "big")%>%
+  group_by(noun, prototype_status)%>%
+  summarise(mean_zone = mean(num_checked), sems = sem(num_checked), cis = ci95(num_checked))
+#graph of mean number checked by object when the adjective is *big*
+
+ggplot(by_obj_adjb, aes(x=reorder(noun, mean_zone), y=mean_zone, fill = prototype_status)) + geom_bar(stat = "identity", position=position_dodge()) +
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9))
+
+```
+
+
+```{r}
+by_obj_adjs <- d %>%
+  filter(adj == "small")%>%
+  group_by(noun)%>%
+  summarise(mean_zone = mean(num_checked), sems = sem(num_checked), cis = ci95(num_checked))
+#graph of mean number checked by object when the adjective is *big*
+
+ggplot(by_obj_adjb, aes(x=reorder(noun, mean_zone), y=mean_zone)) + geom_bar(stat = "identity", position=position_dodge()) +
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9))
+
+```
+
+```{r}
 # Friedman test of differences between objects of different prototypicality status when the adjective is big
 d_fried <- d %>%
   filter(adj=="big")%>%
   group_by(subid, prototype_status) %>%
   summarise(zone = mean(num_checked))
+```
 
-
-
+```{r echo=FALSE}
 table(d_fried$subid, d_fried$prototype_status)
 str(d_fried)
+```
+
+```{r}
 
 d_fried$subid <- factor(d_fried$subid)
 d_fried$prototype_status <- factor(d_fried$prototype_status)
 levels(d_fried$prototype_status)
 
-levels(d_fried$subid)
+#levels(d_fried$subid)
 levels(d_fried$prototype_status)
 
 
@@ -591,17 +834,19 @@ d_fried_s <- d %>%
   filter(adj=="big")%>%
   group_by(subid, prototype_status) %>%
   summarise(zone = mean(num_checked))
+```
 
-
-
+```{r echo=FALSE}
 table(d_fried_s$subid, d_fried_s$prototype_status)
 str(d_fried_s)
+```
 
+```{r}
 d_fried_s$subid <- factor(d_fried_s$subid)
 d_fried_s$prototype_status <- factor(d_fried_s$prototype_status)
 levels(d_fried_s$prototype_status)
 
-levels(d_fried$subid)
+#levels(d_fried$subid)
 levels(d_fried$prototype_status)
 
 
@@ -736,3 +981,28 @@ d.obj <- d %>%
 d.obj
 ```
 
+```{r}
+by_obj_adjb <- d %>%
+  filter(adj == "big")%>%
+  group_by(noun)%>%
+  summarise(mean_zone = mean(num_checked), sems = sem(num_checked), cis = ci95(num_checked))
+#graph of mean number checked by object when the adjective is *big*
+
+ggplot(by_obj_adjb, aes(x=reorder(noun, mean_zone), y=mean_zone)) + geom_bar(stat = "identity", position=position_dodge()) +
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9))
+
+```
+
+```{r}
+by_obj_adjs <- d %>%
+  filter(adj == "small")%>%
+  group_by(noun)%>%
+  summarise(mean_zone = mean(num_checked), sems = sem(num_checked), cis = ci95(num_checked))
+#graph of mean number checked by object when the adjective is *big*
+
+ggplot(by_obj_adjs, aes(x=reorder(noun, mean_zone), y=mean_zone)) + geom_bar(stat = "identity", position=position_dodge()) +
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9))
+
+```
