@@ -7,7 +7,7 @@ output:
 This is an analysis of three experiments - The paradigm for all is based on the first experiment reported in Tribushinina 2011.
 Experiment 1 (condition 1) - Same as Tribushinina 2011 but with real pictures rather than cartoon images. 
 Experiment 2 (condition 2) - The images are in real pictures in random order for each display rather than either ascending or descending, of objects that are bigger in real life than in the images of them.
-Experiment 3 (condition 3) - The images are in real pictures in random order for each display rather than either ascending or descending, of objects that are bigger in real life than in the images of them.
+Experiment 3 (condition 3) - The images are in real pictures in random order for each display rather than either ascending or descending, of objects that are smaller in real life than in the images of them.
 
 Predictions:
 Experiment 1 - The effect should be identical to the results reported in Tribushinina 2011, and replicated in Experiment 1a, where the small zone is bigger than the big zone in general, and also with an interaction between prototype status and size judgments, so that he big zone is bigger for prototypically small objects than for prototypically big objects and the small zone is bigger for prototypically big objects than for prototypically small objects.
@@ -39,6 +39,52 @@ addnas <- function (x) {if (length(x)==0){
   result = NA
 } else {result = x}
   return(result)
+}
+
+# Multiple plot function
+#
+# ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)
+# - cols:   Number of columns in layout
+# - layout: A matrix specifying the layout. If present, 'cols' is ignored.
+#
+# If the layout is something like matrix(c(1,2,3,3), nrow=2, byrow=TRUE),
+# then plot 1 will go in the upper left, 2 will go in the upper right, and
+# 3 will go all the way across the bottom.
+#
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+
+  numPlots = length(plots)
+
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+
+ if (numPlots==1) {
+    print(plots[[1]])
+
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
 }
 
 # ####Import data where each row is a check box so that each trial is 7 rows.
@@ -125,10 +171,12 @@ for (f in files) {
                    noun = jd$answers$data$noun,
                    dir = as.character(cbind(jd$answers$data$dir)),
                    num_checked = as.numeric(jd$answers$data$num_checked),
+                   quest_order = c(1:NUM_TRIALS),
                    elapsed_ms = jd$answers$data$elapsed_ms,
                    elapsed_first_click_ms = jd$answers$data$elapsed_first_click_ms,
                    workerid = jd$WorkerId,
                    language = tolower(jd$answers$data$lang),
+                   gender = jd$answers$data$gender,
                    prototype_status = jd$answers$data$prototype_status,
                    non_consec = jd$answers$data$non_consecutive,
                    is_endpoint = jd$answers$data$is_endpoint,
@@ -156,6 +204,17 @@ length(unique(d.raw$subid))
 
 
 
+table(as.factor(d.raw$condition), d.raw$none_checked)
+table(as.factor(d.raw$condition), d.raw$all_checked)
+
+all.none.raw <- d.raw %>%
+  filter(adj != "pretty") %>%
+  filter(adj != "ugly")%>%
+  group_by(adj,condition)%>%
+  summarise(all.c = sum(all_checked), none.c = sum(none_checked), seven.c = sum(!all_checked&(num_checked==7)))
+      
+sum(d.raw$all_checked)
+
 table(as.factor(d.raw$screen_size))
 table(as.factor(d.raw$condition))
 table(as.factor(d.raw$condition), as.factor(d.raw$screen_size))
@@ -178,6 +237,41 @@ for (i in 1:length(d.raw$language)) {
 ```
 
 Analysis now precedes by condition (otherwise known as experiment). The analysis for condition one is exactly the same as that for the replication of Tribushinina 2011. The Exclusion criteria are the same (except for specific cleanup of Language typos), and the analysis is the same.
+
+```{r}
+d.allconditions <- d.raw %>%
+  filter(verb == "are") %>%
+  filter(adj !="pretty") %>%
+  filter(adj != "ugly")%>%
+  filter(as.numeric(screen_size) >= 12) %>%
+  filter(str_detect(language, 'eng')) %>%
+  select(-language) %>%
+  group_by(subid) %>%
+  mutate(perc_non_consec = sum(non_consec)/number_of_targets,
+            perc_no_endpoint = (length(is_endpoint)-sum(is_endpoint))/number_of_targets,
+         perc_good_endpoint = (sum(good_endpoint))/number_of_targets) %>%
+  filter(perc_non_consec < .1) %>%
+  filter(perc_good_endpoint >.9) %>%
+  filter(is_endpoint == TRUE) %>%
+  filter(good_endpoint == TRUE) %>%
+  filter(non_consec == FALSE)
+for (i in 1:length(d.allconditions$none_checked)) {
+   if (d.allconditions$none_checked[i] == TRUE & (!is.na(d.allconditions$none_checked[i]))){
+   d.allconditions$num_checked[i] = 0
+   }
+ }
+
+
+
+all.none <- d.allconditions %>%
+  filter(adj != "pretty") %>%
+  filter(adj != "ugly")%>%
+  group_by(adj,condition)%>%
+  summarise(all.c = sum(all_checked), none.c = sum(none_checked), seven.c = sum(!all_checked&(num_checked==7)))
+```
+
+
+
 
 ##Analysis of Condition (experiment) 1 -- Replication of Tribushinina 2011 using photographs of objects instead of cartoon drawings
 ```{r}
@@ -207,7 +301,7 @@ for (i in 1:length(d$none_checked)) {
  }
 
 length(unique(d$workerid))
-
+table(as.factor(d$gender))/48
 table(as.factor(d$workerid))
 #for pilot A
 # d <- filter(d.raw, prototype_status != "na") %>%
@@ -323,6 +417,86 @@ dev.off()
 
 Using cartoon images, there was successful replication of the finding from Tribushinina (2011) that the *big* zone was bigger for prototypically small items than for prototypically big items or neutral items. Similarly, the *small* zone was found to be bigger for prototypically big items than for prototypically small items or neutral items. However, using photographs of real objects, the replication is not as clean. While the main effect of the *small* zone being bigger than the *big* zone was replicated, the effects of prototype status were not completely replicated. The *small* one, as predicted, was indeed bigger for prototypically big items than for other items, but the *big* zone does not seem to be significantly bigger for prototypically small items than other items. The overall effect is in the right direction vis a vis prototypically big items, but not vis a vis items which are neither prototypically big nor prototypically small. This may also be what is driving the lack of significance of the overall Friedman test of zone by adjective by prototype status.
 
+### Response strategies
+```{r}
+d_var <- d %>%
+  group_by(subid) %>%
+  summarize(num_answers = length(levels(as.factor(num_checked))), mean_num_resps = mean(num_checked), sd_num_resps = sd(num_checked))
+
+ggplot(d_var, aes(x=mean_num_resps)) + geom_histogram(binwidth=.2)
+ggplot(d_var, aes(x=num_answers)) + geom_histogram(binwidth=1)
+
+d <- d %>%
+  left_join(d_var)
+
+png(filename = "fig-variation-by-subj.png", width = 700, height = 800)
+
+print(ggplot(data=d, aes(x=quest_order, y = num_checked))  +
+    geom_line()  + facet_wrap( ~ subid, ncol=5) + xlab("Trial number") + ylab("Number of images selected") )
+dev.off()
+
+#variation by subject ordered photos, trials 1-24
+png(filename = "fig-variation-by-subj-first24.png", width = 700, height = 800)
+
+print(ggplot(data=subset(d,quest_order<27), aes(x=quest_order, y = num_checked))  +
+    geom_line()  + facet_wrap( ~ subid, ncol=5) + xlab("Trial number") + ylab("Number of images selected") )
+dev.off()
+
+
+d_var2 <- d.allconditions %>%
+  filter(condition == "2")%>%
+  group_by(subid) %>%
+  summarize(num_answers = length(levels(as.factor(num_checked))), mean_num_resps = mean(num_checked), sd_num_resps = sd(num_checked))
+
+ggplot(d_var2, aes(x=mean_num_resps)) + geom_histogram(binwidth=.2)
+ggplot(d_var2, aes(x=num_answers)) + geom_histogram(binwidth=1)
+
+d2 <- d.allconditions %>%
+  filter(condition =="2")
+d2 <- d2 %>%
+  left_join(d_var2)
+
+d2$subnum <- as.numeric(gsub(".json", "", gsub("anon-", "", d2$subid)))
+
+png(filename = "fig-variation-by-subj-exp3-1.png", width = 700, height = 800)
+print(
+ggplot(data=subset(d2,subnum<150), aes(x=quest_order, y = num_checked))  +
+    geom_line()  + facet_wrap( ~ subid, ncol=5)+ xlab("Trial number") + ylab("Number of images selected")) 
+dev.off()
+
+png(filename = "fig-variation-by-subj-exp3-2.png", width = 700, height = 800)
+print(ggplot(data=subset(d2,subnum>150), aes(x=quest_order, y = num_checked))  +
+    geom_line()  + facet_wrap( ~ subid, ncol=5) )
+dev.off()
+
+d_var3 <- d.allconditions %>%
+  filter(condition == "3")%>%
+  group_by(subid) %>%
+  summarize(num_answers = length(levels(as.factor(num_checked))), mean_num_resps = mean(num_checked), sd_num_resps = sd(num_checked))
+
+ggplot(d_var3, aes(x=mean_num_resps)) + geom_histogram(binwidth=.2)
+ggplot(d_var3, aes(x=num_answers)) + geom_histogram(binwidth=1)
+
+d3 <- d.allconditions %>%
+  filter(condition =="3")
+d3 <- d3 %>%
+  left_join(d_var3)
+
+d3$subnum <- as.numeric(gsub(".json", "", gsub("anon-", "", d3$subid)))
+
+png(filename = "fig-variation-by-subj-exp5-1.png", width = 700, height = 800)
+print(
+ggplot(data=subset(d3,subnum<=95), aes(x=quest_order, y = num_checked))  +
+    geom_line()  + facet_wrap( ~ subid, ncol=5)+ xlab("Trial number") + ylab("Number of images selected")) 
+dev.off()
+
+png(filename = "fig-variation-by-subj-exp5-2.png", width = 700, height = 800)
+print(ggplot(data=subset(d3,subnum>95), aes(x=quest_order, y = num_checked))  +
+    geom_line()  + facet_wrap( ~ subid, ncol=5) )
+dev.off()
+```
+
+
 ```{r}
 #graph without ducklings and bunnies
 d_graph_ndb <- d %>%
@@ -400,6 +574,209 @@ ggplot(by_obj_adjb, aes(x=reorder(noun, mean_zone), y=mean_zone, fill=prototype_
     geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
                   width=.2, position=position_dodge(.9))
 
+```
+
+
+```{r}
+by_obj_adj1 <- d.allconditions %>%
+  filter(condition == "1")%>%
+  group_by(noun, prototype_status,adj)%>%
+  summarise(mean_zone = mean(num_checked), sems = sem(num_checked), cis = ci95(num_checked))
+#graph of mean number checked by object for both adjectives, condition 1 - ordered photos
+#raph for Meghan meeting 19.7.18
+png(filename = "fig-exp2-by-item.png", width = 700, height = 373)
+print(ggplot(by_obj_adj1, aes(x=reorder(noun, mean_zone), y=mean_zone, fill=prototype_status)) + geom_bar(stat = "identity", position=position_dodge()) + facet_wrap(~adj) +
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9)) + 
+      theme (plot.title = element_text(lineheight=.8, face="bold", hjust=0.5), axis.text.x  = element_text(angle=90, vjust=0.5)) + 
+  xlab("noun") + ggtitle("Mean zone by object for each\nadjective - ordered photos") )
+dev.off()
+```
+```{r}
+by_obj_adj1s <- d.allconditions %>%
+  filter(condition == "1")%>%
+  filter(adj == "small")%>%
+  group_by(noun, prototype_status,adj)%>%
+  summarise(mean_zone = mean(num_checked), sems = sem(num_checked), cis = ci95(num_checked))
+
+by_obj_adj1b <- d.allconditions %>%
+  filter(condition == "1")%>%
+  filter(adj == "big")%>%
+  group_by(noun, prototype_status,adj)%>%
+  summarise(mean_zone = mean(num_checked), sems = sem(num_checked), cis = ci95(num_checked))
+#graph of mean number checked by object when adj small, condition 1 - ordered photos
+#graph for Meghan meeting 19.7.18
+g1 <- ggplot(by_obj_adj1s, aes(x=reorder(noun, mean_zone), y=mean_zone, fill=prototype_status)) + geom_bar(stat = "identity", position=position_dodge()) + 
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9)) + 
+      theme (plot.title = element_text(lineheight=.8, face="bold", hjust=0.5), axis.text.x  = element_text(angle=90, vjust=0.5)) + 
+  xlab("noun") + ggtitle("Mean zone by object when\nadjective is small - ordered photos") +
+      scale_fill_brewer(name="Prot.\nstatus", breaks=c("big", "neither", "small"),
+                         labels=c("Big", "Neutral", "Small"), palette="YlGnBu") + 
+  scale_y_continuous(limits=c(0, 3.7))
+g2 <- ggplot(by_obj_adj1b, aes(x=reorder(noun, mean_zone), y=mean_zone, fill=prototype_status)) + geom_bar(stat = "identity", position=position_dodge()) + 
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9)) + 
+      theme (plot.title = element_text(lineheight=.8, face="bold", hjust=0.5), axis.text.x  = element_text(angle=90, vjust=0.5), legend.position="none") + 
+  xlab("noun") + ggtitle("Mean zone by object when\nadjective is big - ordered photos")+
+      scale_fill_brewer(name="Prot.\nstatus", breaks=c("big", "neither", "small"),
+                         labels=c("Big", "Neutral", "Small"), palette="YlGnBu") + 
+  scale_y_continuous(limits=c(0, 3.7))
+png(filename = "fig-exp2-by-item.png", width = 900, height = 500)
+print(multiplot(g1, g2, cols=2))
+dev.off()
+
+#with no legend for dissertation
+g5 <- ggplot(by_obj_adj1s, aes(x=reorder(noun, mean_zone), y=mean_zone, fill=prototype_status)) + geom_bar(stat = "identity", position=position_dodge()) + 
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9)) + 
+      theme (plot.title = element_text(lineheight=.8, face="bold", hjust=0.5), axis.text.x  = element_text(angle=90, vjust=0.5), legend.position="none") + 
+  xlab("noun") + ggtitle("Mean zone by object when\nadjective is small - ordered photos") +
+      scale_fill_brewer(name="Prot.\nstatus", breaks=c("big", "neither", "small"),
+                         labels=c("Big", "Neutral", "Small"), palette="YlGnBu") + 
+  scale_y_continuous(limits=c(0, 3.7))
+g6 <- ggplot(by_obj_adj1b, aes(x=reorder(noun, mean_zone), y=mean_zone, fill=prototype_status)) + geom_bar(stat = "identity", position=position_dodge()) + 
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9)) + 
+      theme (plot.title = element_text(lineheight=.8, face="bold", hjust=0.5), axis.text.x  = element_text(angle=90, vjust=0.5), legend.position="none") + 
+  xlab("noun") + ggtitle("Mean zone by object when\nadjective is big - ordered photos")+
+      scale_fill_brewer(name="Prot.\nstatus", breaks=c("big", "neither", "small"),
+                         labels=c("Big", "Neutral", "Small"), palette="YlGnBu") + 
+  scale_y_continuous(limits=c(0, 3.7))
+png(filename = "fig-exp2-by-item-no-legend.png", width = 900, height = 500)
+print(multiplot(g6, g5, cols=2))
+dev.off()
+```
+
+```{r}
+
+#graph of mean number checked by object when adj small, condition 1 - ordered photos
+#graph for Meghan meeting 19.7.18
+png(filename = "fig-exp2-by-item-small.png", width = 700, height = 373)
+print(ggplot(by_obj_adj1s, aes(x=reorder(noun, mean_zone), y=mean_zone, fill=prototype_status)) + geom_bar(stat = "identity", position=position_dodge()) + 
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9)) + 
+      theme (plot.title = element_text(lineheight=.8, face="bold", hjust=0.5), axis.text.x  = element_text(angle=90, vjust=0.5)) + 
+  xlab("noun") + ggtitle("Mean zone by object for each\nadjective - ordered photos") )
+dev.off()
+```
+
+
+```{r}
+by_obj_adj2s <- d.allconditions %>%
+  filter(condition == "2")%>%
+  filter(adj == "small")%>%
+  group_by(noun, prototype_status,adj)%>%
+  summarise(mean_zone = mean(num_checked), sems = sem(num_checked), cis = ci95(num_checked))
+
+by_obj_adj2b <- d.allconditions %>%
+  filter(condition == "2")%>%
+  filter(adj == "big")%>%
+  group_by(noun, prototype_status,adj)%>%
+  summarise(mean_zone = mean(num_checked), sems = sem(num_checked), cis = ci95(num_checked))
+#graph of mean number checked by object when adj small, condition 2 - randomized photos
+#graph for Meghan meeting 19.7.18
+g3 <- ggplot(by_obj_adj2s, aes(x=reorder(noun, mean_zone), y=mean_zone, fill=prototype_status)) + geom_bar(stat = "identity", position=position_dodge()) + 
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9)) + 
+      theme (plot.title = element_text(lineheight=.8, face="bold", hjust=0.5), axis.text.x  = element_text(angle=90, vjust=0.5)) + 
+  xlab("noun") + ggtitle("Mean zone by object when\nadjective is small - randomized photos") +
+      scale_fill_brewer(name="Prot.\nstatus", breaks=c("big", "neither", "small"),
+                         labels=c("Big", "Neutral", "Small"), palette="YlGnBu") + 
+  scale_y_continuous(limits=c(0, 3.5))
+g4 <- ggplot(by_obj_adj2b, aes(x=reorder(noun, mean_zone), y=mean_zone, fill=prototype_status)) + geom_bar(stat = "identity", position=position_dodge()) + 
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9)) + 
+      theme (plot.title = element_text(lineheight=.8, face="bold", hjust=0.5), axis.text.x  = element_text(angle=90, vjust=0.5), legend.position="none") + 
+  xlab("noun") + ggtitle("Mean zone by object when\nadjective is big - randomized photos") +
+      scale_fill_brewer(name="Prot.\nstatus", breaks=c("big", "neither", "small"),
+                         labels=c("Big", "Neutral", "Small"), palette="YlGnBu") + 
+  scale_y_continuous(limits=c(0, 3.5))
+png(filename = "fig-exp3-by-item.png", width = 900, height = 500)
+print(multiplot(g3, g4, cols=2))
+dev.off()
+
+#figure with no legend for dissertation
+g7 <- ggplot(by_obj_adj2s, aes(x=reorder(noun, mean_zone), y=mean_zone, fill=prototype_status)) + geom_bar(stat = "identity", position=position_dodge()) + 
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9)) + 
+      theme (plot.title = element_text(lineheight=.8, face="bold", hjust=0.5), axis.text.x  = element_text(angle=90, vjust=0.5), legend.position="none") + 
+  xlab("noun") + ggtitle("Mean zone by object when\nadjective is small - randomized photos") +
+      scale_fill_brewer(name="Prot.\nstatus", breaks=c("big", "neither", "small"),
+                         labels=c("Big", "Neutral", "Small"), palette="YlGnBu") + 
+  scale_y_continuous(limits=c(0, 3.5))
+g8 <- ggplot(by_obj_adj2b, aes(x=reorder(noun, mean_zone), y=mean_zone, fill=prototype_status)) + geom_bar(stat = "identity", position=position_dodge()) + 
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9)) + 
+      theme (plot.title = element_text(lineheight=.8, face="bold", hjust=0.5), axis.text.x  = element_text(angle=90, vjust=0.5), legend.position="none") + 
+  xlab("noun") + ggtitle("Mean zone by object when\nadjective is big - randomized photos") +
+      scale_fill_brewer(name="Prot.\nstatus", breaks=c("big", "neither", "small"),
+                         labels=c("Big", "Neutral", "Small"), palette="YlGnBu") + 
+  scale_y_continuous(limits=c(0, 3.5))
+png(filename = "fig-exp3-by-item-no-legend.png", width = 900, height = 500)
+print(multiplot(g8, g7, cols=2))
+dev.off()
+```
+
+```{r}
+by_obj_adj2 <- d.allconditions %>%
+  filter(condition == "2")%>%
+  group_by(noun, prototype_status,adj)%>%
+  summarise(mean_zone = mean(num_checked), sems = sem(num_checked), cis = ci95(num_checked))
+#graph of mean number checked by object for both adjectives, condition 2 - random photographs
+#raph for Meghan meeting 19.7.18
+png(filename = "fig-exp3-by-item.png", width = 700, height = 373)
+print(ggplot(by_obj_adj2, aes(x=reorder(noun, mean_zone), y=mean_zone, fill=prototype_status)) + geom_bar(stat = "identity", position=position_dodge()) + facet_wrap(~adj) +
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9)) + 
+      theme (plot.title = element_text(lineheight=.8, face="bold", hjust=0.5), axis.text.x  = element_text(angle=90, vjust=0.5)) + 
+  xlab("noun") + ggtitle("Mean zone by object for each\nadjective - randomized photos") )
+dev.off()
+```
+
+```{r}
+by_obj_adj3 <- d.allconditions %>%
+  filter(condition == "3")%>%
+  group_by(noun, prototype_status,adj)%>%
+  summarise(mean_zone = mean(num_checked), sems = sem(num_checked), cis = ci95(num_checked))
+#graph of mean number checked by object for both adjectives, condition 3- random tiny objects
+#raph for Meghan meeting 19.7.18
+png(filename = "fig-exp5-by-item.png", width = 700, height = 373)
+print(ggplot(by_obj_adj3, aes(x=reorder(noun, mean_zone), y=mean_zone, fill=prototype_status)) + geom_bar(stat = "identity", position=position_dodge()) + facet_wrap(~adj) +
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9)) + 
+      theme (plot.title = element_text(lineheight=.8, face="bold", hjust=0.5), axis.text.x  = element_text(angle=90, vjust=0.5)) + 
+  xlab("noun") + ggtitle("Mean zone by object for each\nadjective - replication") )
+dev.off()
+```
+
+```{r}
+by_obj_adj3s <- d.allconditions %>%
+  filter(condition == "3")%>%
+  filter(adj == "small")%>%
+  group_by(noun, prototype_status,adj)%>%
+  summarise(mean_zone = mean(num_checked), sems = sem(num_checked), cis = ci95(num_checked))
+
+by_obj_adj3b <- d.allconditions %>%
+  filter(condition == "3")%>%
+  filter(adj == "big")%>%
+  group_by(noun, prototype_status,adj)%>%
+  summarise(mean_zone = mean(num_checked), sems = sem(num_checked), cis = ci95(num_checked))
+#graph of mean number checked by object when adj small, condition 3 - randomized tiny things
+#graph for Meghan meeting 19.7.18
+g5 <- ggplot(by_obj_adj3s, aes(x=reorder(noun, mean_zone), y=mean_zone)) + geom_bar(stat = "identity", position=position_dodge()) + 
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9)) + 
+      theme (plot.title = element_text(lineheight=.8, face="bold", hjust=0.5), axis.text.x  = element_text(angle=90, vjust=0.5)) + 
+  xlab("noun") + ggtitle("Mean zone by object when\nadjective is small - randomized tiny") 
+g6 <- ggplot(by_obj_adj3b, aes(x=reorder(noun, mean_zone), y=mean_zone)) + geom_bar(stat = "identity", position=position_dodge()) + 
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9)) + 
+      theme (plot.title = element_text(lineheight=.8, face="bold", hjust=0.5), axis.text.x  = element_text(angle=90, vjust=0.5), legend.position="none") + 
+  xlab("noun") + ggtitle("Mean zone by object when\nadjective is big - randomized tiny")
+png(filename = "fig-exp5-by-item.png", width = 800, height = 373)
+print(multiplot(g5, g6, cols=2))
+dev.off()
 ```
 
 ```{r}
@@ -568,9 +945,9 @@ d <- d.raw %>%
          perc_good_endpoint = (sum(good_endpoint))/NUM_TARGETS) %>%
   filter(perc_non_consec < .1) %>%
   filter(perc_good_endpoint >.9) %>%
+  filter(is_endpoint == TRUE) %>%
   filter(good_endpoint == TRUE) %>%
-  filter(non_consec == FALSE) %>%
-  filter(is_endpoint == TRUE)
+  filter(non_consec == FALSE)
 for (i in 1:length(d$none_checked)) {
    if (d$none_checked[i] == TRUE & (!is.na(d$none_checked[i]))){
    d$num_checked[i] = 0
@@ -578,6 +955,7 @@ for (i in 1:length(d$none_checked)) {
  }
 
 length(unique(d$workerid))
+table(d$gender)/24
 #for pilot A
 # d <- filter(d.raw, prototype_status != "na") %>%
 #   group_by(subid) %>%
@@ -592,7 +970,7 @@ head(d)
 #### Prepare data for analysis - create columns etc.
 ```
 
-Keeping the exclusion criteria the same excludes 7 subjects, which really isn't that bad, thoughthe exclusion criteria may make less sense now that the order is mixed. The following analysis keeps the old exclusion criteria, but subsequent analyses may change this.
+Keeping the exclusion criteria the same excludes 7 subjects, which really isn't that bad, though the exclusion criteria may make less sense now that the order is mixed. The following analysis keeps the old exclusion criteria, but subsequent analyses may change this.
 
 ### Confirmatory analysis
 #### Key test
@@ -616,9 +994,32 @@ d_wilc <- d %>%
   summarise(zone = num_checked)%>%
   spread(adj, zone)
   wilcox.test(d_wilc$big, d_wilc$small, alternative = "l", paired = TRUE)
+  
+  wilcoxsign_test(d_wilc$big ~ d_wilc$small, distribution="exact")
+  
+  write.table(d_wilc, "D:/Dropbox/School/more adjs/experiment 1b/Trib2011-3conditions/data/d_wilc_c2.txt", sep="\t")
 ```
 
 As predicted, the main effect remains, whereby the *big* zone is significantly smaller than the *small* zone, replicating the result from Tribushinina 2011.
+
+### Response strategies
+```{r}
+d_var <- d %>%
+  group_by(subid) %>%
+  summarize(num_answers = length(levels(as.factor(num_checked))), mean_num_resps = mean(num_checked), sd_num_resps = sd(num_checked))
+
+ggplot(d_var, aes(x=mean_num_resps)) + geom_histogram(binwidth=.2)
+ggplot(d_var, aes(x=num_answers)) + geom_histogram(binwidth=1)
+
+d <- d %>%
+  left_join(d_var)
+d$subnum <- as.numeric(gsub(".json", "", gsub("anon-", "", d$subid)))
+
+ggplot(data=subset(d,subnum<150), aes(x=quest_order, y = num_checked))  +
+    geom_line()  + facet_wrap( ~ subid, ncol=5)
+ggplot(data=subset(d,subnum>150), aes(x=quest_order, y = num_checked))  +
+    geom_line()  + facet_wrap( ~ subid, ncol=5)
+```
 
 ####Differences between items of different prototypicality status for each adjective
 
@@ -672,6 +1073,21 @@ print(ggplot(d_graph, aes(x=adj, y=mean_zone, fill = prototype_status)) +
 
 dev.off()
 
+#graph for dissertation paper
+theme_set(theme_bw(base_size = 18))
+png(filename = "fig-exp3-res.png", width = 601, height = 373)
+print(ggplot(d_graph, aes(x=adj, y=mean_zone, fill = prototype_status)) + 
+        geom_bar(stat = "identity", position=position_dodge()) +
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis), width=.2, position=position_dodge(.9)) + 
+      ggtitle("Mean zone by prototypicality status") +  
+      xlab("Adjecitve in the question") +
+      scale_fill_brewer(name="Prot.\nstatus", breaks=c("big", "neither", "small"),
+                         labels=c("Big", "Neutral", "Small"), palette="YlGnBu")+ 
+     ylab("Mean num. of images selected") + 
+      theme(plot.title = element_text(lineheight=.8, face="bold", hjust=0.5)) )
+
+
+dev.off()
 ```
 
 
@@ -753,7 +1169,7 @@ by_obj_adjs <- d %>%
   summarise(mean_zone = mean(num_checked), sems = sem(num_checked), cis = ci95(num_checked))
 #graph of mean number checked by object when the adjective is *big*
 
-ggplot(by_obj_adjb, aes(x=reorder(noun, mean_zone), y=mean_zone)) + geom_bar(stat = "identity", position=position_dodge()) +
+ggplot(by_obj_adjb, aes(x=reorder(noun, mean_zone), y=mean_zone, fill = prototype_status)) + geom_bar(stat = "identity", position=position_dodge()) +
     geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
                   width=.2, position=position_dodge(.9))
 
@@ -796,6 +1212,10 @@ d_wilc_bn <- d %>%
   spread(prototype_status, zone)
 
 wilcox.test(d_wilc_bn$big, d_wilc_bn$neither, alternative = "l", paired = TRUE)
+
+wilcoxsign_test(d_wilc_bn$big ~ d_wilc_bn$neither, distribution="exact")
+
+wilcoxsign_test(d_wilc_bn$big ~ d_wilc_bn$neither, distribution="exact", alternative = "less")
 ```
 As predicted, there is a significant differnce between prototypically big items and items which are neither prototypically big nor prototypically small.
 
@@ -810,6 +1230,8 @@ d_wilc_ns <- d %>%
   spread(prototype_status, zone)
 
 wilcox.test(d_wilc_ns$neither, d_wilc_ns$small, alternative = "l", paired = TRUE)
+
+wilcoxsign_test(d_wilc_ns$neither ~ d_wilc_ns$small, distribution="exact")
 ```
 
 Contrary to the prediction and the finding in Tribushinina 2011, there is no significant difference between the size of the *big zone for objects that are prototypically neutral and objects that are prototypically small.
@@ -824,6 +1246,8 @@ d_wilc_bs <- d %>%
   spread(prototype_status, zone)
 
 wilcox.test(d_wilc_bs$big, d_wilc_bs$small, alternative = "l", paired = TRUE)
+
+wilcoxsign_test(d_wilc_bs$big ~ d_wilc_bs$small, distribution="exact")
 ```
 
 As predicted, the *big* zone is significantly bigger for objects that are prototypically small than for objects that are prototypically big.
@@ -831,7 +1255,7 @@ As predicted, the *big* zone is significantly bigger for objects that are protot
 ```{r}
 # Friedman test of differences between objects of different prototypicality status when the adjective is small
 d_fried_s <- d %>%
-  filter(adj=="big")%>%
+  filter(adj=="small")%>%
   group_by(subid, prototype_status) %>%
   summarise(zone = mean(num_checked))
 ```
@@ -847,7 +1271,7 @@ d_fried_s$prototype_status <- factor(d_fried_s$prototype_status)
 levels(d_fried_s$prototype_status)
 
 #levels(d_fried$subid)
-levels(d_fried$prototype_status)
+levels(d_fried_s$prototype_status)
 
 
 friedman.test(zone ~ prototype_status  | subid, data = d_fried_s)
@@ -864,6 +1288,8 @@ d_wilc_sbn <- d %>%
   spread(prototype_status, zone)
 
 wilcox.test(d_wilc_sbn$big, d_wilc_sbn$neither, alternative = "g", paired = TRUE)
+
+wilcoxsign_test(d_wilc_sbn$big ~ d_wilc_sbn$neither, distribution="exact")
 ```
 
 As predicted, the *small* zone is significantly bigger for items that are prototypically big than for items that are neither prototypically small nor prototypically big.
@@ -878,6 +1304,8 @@ d_wilc_sns <- d %>%
   spread(prototype_status, zone)
 
 wilcox.test(d_wilc_sns$neither, d_wilc_sns$small, alternative = "g", paired = TRUE)
+
+wilcoxsign_test(d_wilc_sns$neither ~ d_wilc_sns$small, distribution="exact")
 ```
 
 Contrary to the prediction, and to the finding in Tribushinina 2011, there *small* zone is not significantly different for items that are prototypically small, and items that are neither prototypically big nor prortypically small.
@@ -892,6 +1320,8 @@ d_wilc_sbs <- d %>%
   spread(prototype_status, zone)
 
 wilcox.test(d_wilc_sbs$big, d_wilc_sbs$small, alternative = "g", paired = TRUE)
+
+wilcoxsign_test(d_wilc_sbs$big ~ d_wilc_sbs$small, distribution="exact")
 ```
 
 As predicted, the *small* zone is significantly bigger for items that are prototypically big than for items that are prototypicallly small.
@@ -912,7 +1342,7 @@ d <- d.raw %>%
   filter(verb == "are") %>%
   filter(adj !="pretty") %>%
   filter(adj != "ugly")%>%
-  filter(as.numeric(screen_size) >= 7) %>%
+  filter(as.numeric(screen_size) >= 12) %>%
   filter(str_detect(language, 'eng')) %>%
   select(-language) %>%
   group_by(subid) %>%
@@ -931,6 +1361,7 @@ for (i in 1:length(d$none_checked)) {
  }
 
 length(unique(d$workerid))
+table(d$gender)/24
 #for pilot A
 # d <- filter(d.raw, prototype_status != "na") %>%
 #   group_by(subid) %>%
@@ -944,7 +1375,7 @@ head(d)
 
 #### Prepare data for analysis - create columns etc.
 ```
-Again, despite the need to revisit the exclusion criteria (they are currently too harsh due to the change to mixed order), only 8 subjects are totally excluded according to the old criteria.
+Again, despite the need to revisit the exclusion criteria (they are currently too harsh due to the change to mixed order), only 14 subjects are totally excluded according to the old criteria.
 
 ### Confirmatory analysis
 #### Key test
@@ -965,6 +1396,10 @@ d_wilc <- d %>%
   summarise(zone = num_checked)%>%
   spread(adj, zone)
   wilcox.test(d_wilc$small, d_wilc$big, alternative = "l", paired = TRUE)
+  
+ # wilcoxsign_test(d_wilc$big ~ d_wilc$small, distribution="exact")
+  write.table(d_wilc, "D:/Dropbox/School/more adjs/experiment 1b/Trib2011-3conditions/data/d_wilc.txt", sep="\t")
+  
 ```
 
 As predicted, when the items depicted are smaller than the images, the *big* zone is bigger than the *small* zone - the reverse of the results in Tribushinina 2011, experiment 1a, and conditions 1 and 2.
@@ -982,6 +1417,17 @@ d.obj
 ```
 
 ```{r}
+by_obj_adjall <- d %>%
+  group_by(noun,adj)%>%
+  summarise(mean_zone = mean(num_checked), sems = sem(num_checked), cis = ci95(num_checked))
+
+
+ggplot(by_obj_adjall, aes(x=reorder(noun, mean_zone), y=mean_zone, fill=adj)) + geom_bar(stat = "identity", position=position_dodge()) +
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9)) + 
+  xlab("Noun") +
+  ylab("Mean number checked")
+
 by_obj_adjb <- d %>%
   filter(adj == "big")%>%
   group_by(noun)%>%
@@ -991,6 +1437,21 @@ by_obj_adjb <- d %>%
 ggplot(by_obj_adjb, aes(x=reorder(noun, mean_zone), y=mean_zone)) + geom_bar(stat = "identity", position=position_dodge()) +
     geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
                   width=.2, position=position_dodge(.9))
+
+#graph for dissertation chapter - mean zone by item
+theme_set(theme_bw(base_size = 18))
+png(filename = "fig-exp5-item-res.png", width = 755, height = 373)
+print(ggplot(by_obj_adjall, aes(x=reorder(noun, mean_zone), y=mean_zone, fill=adj)) + 
+        geom_bar(stat = "identity", position=position_dodge()) +
+    geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
+                  width=.2, position=position_dodge(.9)) + 
+  ggtitle("Mean zone by item") +
+  scale_fill_discrete(name="Adjective", labels=c("Big", "Small"))+
+  xlab("Noun") +
+  ylab("Mean zone") + 
+      theme(plot.title = element_text(lineheight=.8, face="bold", hjust=0.5)) )
+
+dev.off()
 
 ```
 
@@ -1005,4 +1466,26 @@ ggplot(by_obj_adjs, aes(x=reorder(noun, mean_zone), y=mean_zone)) + geom_bar(sta
     geom_errorbar(aes(ymin=mean_zone-cis, ymax=mean_zone+cis),
                   width=.2, position=position_dodge(.9))
 
+```
+
+### Response strategies
+```{r}
+d_var <- d %>%
+  group_by(subid) %>%
+  summarize(num_answers = length(levels(as.factor(num_checked))), mean_num_resps = mean(num_checked), sd_num_resps = sd(num_checked))
+
+ggplot(d_var, aes(x=mean_num_resps)) + geom_histogram(binwidth=.2)
+ggplot(d_var, aes(x=num_answers)) + geom_histogram(binwidth=1)
+
+d <- d %>%
+  left_join(d_var)
+d$subnum <- as.numeric(gsub(".json", "", gsub("anon-", "", d$subid)))
+
+ggplot(data=subset(d,subnum<150), aes(x=quest_order, y = num_checked))  +
+    geom_line()  + facet_wrap( ~ subid, ncol=5)
+ggplot(data=subset(d,subnum>150), aes(x=quest_order, y = num_checked))  +
+    geom_line()  + facet_wrap( ~ subid, ncol=5)
+
+ggplot(data=d, aes(x=quest_order, y = num_checked))  +
+    geom_line()  + facet_wrap( ~ subid, ncol=5)
 ```

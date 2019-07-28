@@ -88,7 +88,7 @@ function weightedRand2(spec) {
   }
 }
 
-var condition = weightedRand2({1:0.2, 2:0.8, 3:0}); // random in distribution...
+var condition = weightedRand2({1:0.2, 2:0.4, 3:0.4}); // random in distribution...
 //for testing purposes of given condition
 //var condition = 1;
 //for testing purposes - short varient
